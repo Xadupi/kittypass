@@ -1,0 +1,45 @@
+[package]
+name = "kittypass-desktop"
+version = "0.1.0"
+edition = "2024"
+description = "Gestionnaire de mots de passe KittyPass"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "kittypass_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time", "sync", "signal"] }
+zeroize = "1"
+kittypass-app = { path = "../app" }
+kittypass-core = { path = "../core", features = ["client"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+sha2 = "0.11.1"
+base64 = "0.23.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", features = ["linux-native-sync-persistent", "crypto-rust"] }
+x11rb = { version = "0.13", features = ["xtest"] }
+ashpd = { version = "0.13", default-features = false, features = ["tokio", "remote_desktop", "screencast", "global_shortcuts"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+xkbcommon = { version = "0.8", default-features = false }
+wayland-client = "0.31"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6", features = ["windows-native"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62", features = ["Foundation", "Security_Credentials_UI", "Win32_Foundation", "Win32_System_WinRT"] }
+tauri-plugin-global-shortcut = "2"
+windows-future = "0.3"

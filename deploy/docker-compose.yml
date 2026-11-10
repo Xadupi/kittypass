@@ -1,0 +1,38 @@
+# Exemple : KittyPass derrière Caddy (HTTPS automatique Let's Encrypt).
+# Remplacer coffre.example.org par ton domaine dans Caddyfile.
+services:
+  kittypass:
+    build: ..
+    restart: unless-stopped
+    environment:
+      # Caddy est le seul proxy de confiance (adresse fixe sur le réseau interne).
+      KITTYPASS_TRUSTED_PROXIES: "172.30.0.10"
+      KITTYPASS_REQUIRE_2FA: "false"
+    volumes:
+      - kittypass-data:/data
+    networks:
+      internal:
+        ipv4_address: 172.30.0.20
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    networks:
+      internal:
+        ipv4_address: 172.30.0.10
+
+networks:
+  internal:
+    ipam:
+      config: [{subnet: 172.30.0.0/24}]
+
+volumes:
+  kittypass-data:
+  caddy-data:

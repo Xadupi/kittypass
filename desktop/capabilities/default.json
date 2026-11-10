@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions minimales : la fenêtre principale n'accède qu'aux commandes KittyPass et aux événements. Aucun accès fichier, shell, réseau ni lecture du presse-papiers depuis le JavaScript.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}

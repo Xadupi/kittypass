@@ -1,0 +1,6 @@
+{
+  "identifier": "org.kittypass.app",
+  "app": {
+    "windows": [{ "label": "main", "title": "KittyPass" }]
+  }
+}

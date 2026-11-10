@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Même dégradé crème que le fond de l'icône : le tour se confond avec le
+     masque du lanceur (rond, carré arrondi…). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <gradient android:angle="270" android:startColor="#FAF7EE" android:endColor="#EAE4D5" />
+</shape>

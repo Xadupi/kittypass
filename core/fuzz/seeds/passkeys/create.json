@@ -1,0 +1,1 @@
+{"publicKey":{"rp":{"id":"example.com","name":"Ex"},"user":{"id":"dXNlcg","name":"u","displayName":"U"},"challenge":"Y2hhbGxlbmdlY2hhbGxlbmdl","pubKeyCredParams":[{"type":"public-key","alg":-7},{"type":"public-key","alg":-8}],"authenticatorSelection":{"residentKey":"required","userVerification":"preferred"},"excludeCredentials":[]}}

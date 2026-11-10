@@ -1,0 +1,55 @@
+[package]
+name = "kittypass-core"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+argon2 = "0.6"
+getrandom = "0.4.3"
+hkdf = "0.13"
+keepass = { version = "=0.17.0", features = ["save_kdbx4", "totp", "_merge"] }
+kdbx-argon2 = { package = "rust-argon2", version = "3.0" }
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+uuid = "1.29.0"
+zeroize = { version = "1.9.1", features = ["derive", "serde"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "http2"], optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+base64 = "0.23.1"
+chrono = { version = "0.4", default-features = false }
+hmac = "0.13.0"
+sha1 = "0.11.0"
+# Imports : CSV, 1Password (.1pux = zip, décompression deflate en Rust pur).
+csv = "1.4.0"
+zip = { version = "9.3.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zxcvbn = { version = "3.1.1", default-features = false }
+# Intégration KeePassXC-Browser : NaCl crypto_box, passkeys (ES256, EdDSA),
+# CBOR (WebAuthn), liste des suffixes publics (validation du RP ID).
+crypto_box = { version = "0.9", features = ["std", "salsa20"] }
+p256 = { version = "0.14", features = ["ecdsa", "pkcs8", "pem"] }
+ed25519-dalek = { version = "3", features = ["pkcs8", "pem"] }
+ciborium = "0.2"
+psl = "2"
+url = "2"
+# Agent SSH : clés privées OpenSSH (chiffrées ou non) et réglages KeeAgent.
+ssh-key = { version = "0.6.7", default-features = false, features = ["std", "ecdsa", "encryption"] }
+ssh-encoding = { version = "0.2", features = ["std"] }
+quick-xml = "0.42"
+
+[dev-dependencies]
+hmac = "0.13.0"
+proptest = "1.12.0"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros"] }
+zeroize = "1.9.1"
+
+[features]
+client = ["dep:reqwest", "dep:webpki-root-certs"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+webpki-root-certs = { version = "1", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Pipes", "Win32_System_Threading"] }

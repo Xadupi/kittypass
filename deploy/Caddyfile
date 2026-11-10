@@ -1,0 +1,17 @@
+coffre.example.org {
+	# Seule l'API et la sonde de santé sont exposées.
+	@api path /api/v1/* /health
+	handle @api {
+		reverse_proxy 172.30.0.20:8080 {
+			# Caddy remplace X-Forwarded-For par l'adresse réelle du client.
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	handle {
+		respond 404
+	}
+	request_body {
+		max_size 64MB
+	}
+	header -Server
+}

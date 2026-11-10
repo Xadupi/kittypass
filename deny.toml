@@ -1,0 +1,57 @@
+# cargo deny check : failles connues, licences, crates en double ou interdites,
+# provenance des dépendances.
+
+[graph]
+all-features = true
+
+[advisories]
+# Toute faille connue ou crate non maintenue bloque ; une exception doit être
+# justifiée ici, avec sa date.
+ignore = [
+    # 2026-11-10 : crates « non maintenues », sans faille connue ni version de
+    # remplacement chez les crates qui les tirent. À revoir à chaque mise à jour.
+    # proc-macro-error : macros de compilation de glib/gtk (Tauri sous Linux).
+    { id = "RUSTSEC-2024-0370", reason = "macro de compilation via gtk-rs/Tauri, pas de code à l'exécution" },
+    # zbus_names, zvariant, zvariant_derive : D-Bus via keyring (trousseau système).
+    { id = "RUSTSEC-2026-0370", reason = "zvariant via keyring/zbus 5, pas de remplacement" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names via keyring/zbus 5, pas de remplacement" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via keyring/zbus 5, pas de remplacement" },
+]
+
+[licenses]
+# Compatibles avec la GPL-3.0-or-later de KittyPass.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "Unlicense",
+    "BSL-1.0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "GPL-3.0-or-later",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+deny = [
+    # TLS : rustls seulement, jamais OpenSSL (pas de dépendance au système).
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "native-tls" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

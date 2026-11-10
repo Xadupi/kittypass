@@ -1,0 +1,117 @@
+[package]
+name = "kittypass-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+zeroize = "1"
+kittypass-core = { path = ".." }
+
+# Hors de l'espace de travail : compilé seulement par `cargo fuzz` (nightly).
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[patch.crates-io]
+keepass = { path = "../../vendor/keepass" }
+zxcvbn = { path = "../../vendor/zxcvbn" }
+
+[[bin]]
+name = "kdbx"
+path = "fuzz_targets/kdbx.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "keyfile"
+path = "fuzz_targets/keyfile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "import_csv"
+path = "fuzz_targets/import_csv.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "import_bitwarden"
+path = "fuzz_targets/import_bitwarden.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "import_1pux"
+path = "fuzz_targets/import_1pux.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "browser_message"
+path = "fuzz_targets/browser_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "passkeys"
+path = "fuzz_targets/passkeys.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "url_matching"
+path = "fuzz_targets/url_matching.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ssh_settings"
+path = "fuzz_targets/ssh_settings.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ssh_key"
+path = "fuzz_targets/ssh_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ssh_agent_reply"
+path = "fuzz_targets/ssh_agent_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "otp"
+path = "fuzz_targets/otp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "autotype"
+path = "fuzz_targets/autotype.rs"
+test = false
+doc = false
+bench = false
+

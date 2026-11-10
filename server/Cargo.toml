@@ -1,0 +1,33 @@
+[package]
+name = "kittypass-server"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+axum = "0.8.9"
+base64 = "0.23.1"
+chacha20poly1305 = "0.11.0"
+getrandom = "0.4.3"
+hkdf = "0.13.0"
+hmac = "0.13.0"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha1 = "0.11.0"
+sha2 = "0.11.1"
+subtle = "2.6.1"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["full"] }
+tower = { version = "0.5.3", features = ["util", "limit"] }
+hyper = { version = "1.12.0", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1.21", features = ["server-auto", "tokio", "http1", "http2", "service"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+uuid = { version = "1.29.0", features = ["v4"] }
+kittypass-core = { version = "0.1.0", path = "../core" }
+
+[dev-dependencies]
+http-body-util = "0.1.5"
+kittypass-core = { path = "../core", features = ["client"] }

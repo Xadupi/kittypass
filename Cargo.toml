@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["core", "server", "app", "desktop", "proxy"]
+exclude = ["vendor/keepass", "vendor/zxcvbn", "core/fuzz"]
+
+[workspace.package]
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+# Argon2 est inutilisable sans optimisation : on optimise les dépendances
+# même en mode debug et pour les tests.
+[profile.dev.package."*"]
+opt-level = 3
+
+# keepass-rs corrigé : la fusion ignorait les pièces jointes (voir
+# vendor/keepass, recherche « KittyPass patch »).
+[patch.crates-io]
+keepass = { path = "vendor/keepass" }
+# zxcvbn corrigé : calculs en u64 saturés qui ignoraient les motifs des mots
+# de passe longs (voir vendor/zxcvbn, recherche « KittyPass patch »).
+zxcvbn = { path = "vendor/zxcvbn" }

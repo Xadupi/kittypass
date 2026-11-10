@@ -1,0 +1,13 @@
+target/
+*.kdbx
+/desktop/gen/schemas/
+/desktop/binaries/
+/deploy/proxmox/kittypass-proxmox.sh
+# Données locales : bases, clés secrètes, profils et fichiers d'essai
+/data/
+/deploy/proxmox/data/
+/essai/
+*.db
+*.db-shm
+*.db-wal
+secret.key

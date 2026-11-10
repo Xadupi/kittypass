@@ -1,0 +1,1 @@
+otpauth://totp/Ex:moi?secret=JBSWY3DPEHPK3PXP&issuer=Ex&algorithm=SHA256&digits=8&period=60

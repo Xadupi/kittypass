@@ -1,0 +1,8 @@
+{
+  "build": {
+    "beforeBuildCommand": "sh desktop/scripts/build-proxy.sh"
+  },
+  "bundle": {
+    "externalBin": ["binaries/kittypass-proxy"]
+  }
+}

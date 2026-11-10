@@ -1,0 +1,16 @@
+{
+  "build": {
+    "beforeBuildCommand": "KP_TARGET=x86_64-pc-windows-msvc sh desktop/scripts/build-proxy.sh"
+  },
+  "bundle": {
+    "externalBin": [
+      "binaries/kittypass-proxy"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      }
+    }
+  }
+}

@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="fr" data-theme="light" data-accent="green">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>KittyPass</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <!-- Icônes (dessins statiques, aucune donnée du coffre) -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-add" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></symbol>
+    <symbol id="i-delete" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2M20 4v5h-5M4 20v-5h5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6h6l2 2h10v11H3z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6L4 9M4 4v5h5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.3-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4c0-4.5-4-8.1-9-8.1z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M10.13 4.22L10.52 1.60L13.48 1.60L13.87 4.22L16.18 5.18L18.30 3.60L20.40 5.70L18.82 7.82L19.78 10.13L22.40 10.52L22.40 13.48L19.78 13.87L18.82 16.18L20.40 18.30L18.30 20.40L16.18 18.82L13.87 19.78L13.48 22.40L10.52 22.40L10.13 19.78L7.82 18.82L5.70 20.40L3.60 18.30L5.18 16.18L4.22 13.87L1.60 13.48L1.60 10.52L4.22 10.13L5.18 7.82L3.60 5.70L5.70 3.60L7.82 5.18Z"/><circle cx="12" cy="12" r="3.2"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></symbol>
+    <symbol id="i-finger" viewBox="0 0 24 24"><path d="M7 10a5 5 0 0 1 10 0v2M12 10v4c0 3 1 5 2 6M9 12c0 4 1 6 2.5 8M15 13c0 2 .5 4 1.5 5.5M5 14c.3-1.5.3-3 0-4.5M19 14.5c.3-1.5.3-3 0-4.5M8.5 4.5A7 7 0 0 1 19 8"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  </svg>
+
+  <button id="btn-theme-float" class="icon-btn theme-float" title="Paramètres" aria-label="Paramètres"><svg><use href="#i-gear"/></svg></button>
+
+  <!-- Configuration initiale -->
+  <section id="view-setup" class="view card-view" hidden>
+    <form id="setup-form" method="dialog" class="card" autocomplete="off">
+      <img class="logo" src="logo.svg" alt="" width="96" height="96">
+      <h1>Bienvenue dans KittyPass</h1>
+      <div class="segmented" role="radiogroup">
+        <label><input type="radio" name="mode" value="create" checked> Premier appareil</label>
+        <label><input type="radio" name="mode" value="join"> Rejoindre un coffre</label>
+      </div>
+      <label>Adresse du serveur
+        <input name="server_url" type="url" required placeholder="https://coffre.example.org" spellcheck="false">
+      </label>
+      <label>Identifiant
+        <input name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]+" spellcheck="false">
+      </label>
+      <label>Mot de passe maître
+        <input name="password" type="password" required minlength="10">
+      </label>
+      <label class="only-create">Confirmer le mot de passe maître
+        <input name="confirm" type="password">
+      </label>
+      <label class="only-create">Code d'invitation <small>(laisser vide si le compte existe déjà)</small>
+        <input name="invite" spellcheck="false">
+      </label>
+      <label id="setup-totp" hidden>Code 2FA ou code de secours
+        <input name="totp" inputmode="numeric" spellcheck="false">
+      </label>
+      <div class="keyfile-pick">
+        <span>Fichier clé <small>(facultatif)</small></span>
+        <div class="row">
+          <span class="path muted" id="setup-keyfile-path">Aucun</span>
+          <button type="button" class="small only-create" id="setup-keyfile-new">Créer…</button>
+          <button type="button" class="small" id="setup-keyfile-pick">Choisir…</button>
+          <button type="button" class="small" id="setup-keyfile-clear" hidden>Retirer</button>
+        </div>
+        <label class="inline"><input type="checkbox" id="setup-keyfile-remember" checked> Mémoriser son emplacement sur cet appareil</label>
+      </div>
+      <label>Nom de cet appareil
+        <input name="device" required maxlength="64" value="Ordinateur">
+      </label>
+      <p class="hint only-create">Le mot de passe maître chiffre votre coffre. Il ne quitte jamais cet appareil
+        et ne peut pas être récupéré en cas d'oubli.</p>
+      <p class="error" id="setup-error" role="alert"></p>
+      <button type="submit" class="primary">Continuer</button>
+    </form>
+  </section>
+
+  <!-- Déverrouillage -->
+  <section id="view-unlock" class="view card-view" hidden>
+    <form id="unlock-form" method="dialog" class="card" autocomplete="off">
+      <img class="logo" src="logo.svg" alt="" width="88" height="88">
+      <h1>Coffre verrouillé</h1>
+      <p class="muted" id="unlock-account"></p>
+      <label>Mot de passe maître
+        <input name="password" type="password" required autofocus>
+      </label>
+      <div class="keyfile-pick">
+        <span>Fichier clé</span>
+        <div class="row">
+          <span class="path muted" id="unlock-keyfile-path">Aucun</span>
+          <button type="button" class="small" id="unlock-keyfile-pick">Choisir…</button>
+          <button type="button" class="small" id="unlock-keyfile-clear" hidden>Aucun</button>
+        </div>
+        <label class="inline"><input type="checkbox" id="unlock-keyfile-remember"> Mémoriser son emplacement</label>
+      </div>
+      <p class="error" id="unlock-error" role="alert"></p>
+      <button type="submit" class="primary">Déverrouiller</button>
+      <button type="button" id="unlock-bio" class="bio-btn" hidden><svg><use href="#i-finger"/></svg> <span id="unlock-bio-label">Déverrouiller avec l'empreinte</span></button>
+      <p class="muted bio-msg" id="unlock-bio-msg" role="status"></p>
+    </form>
+  </section>
+
+  <!-- Coffre ouvert -->
+  <section id="view-main" class="view" hidden>
+    <header class="toolbar" role="toolbar" aria-label="Actions">
+      <button class="tool only-phone" id="btn-groups" title="Groupes et étiquettes" aria-label="Groupes et étiquettes"><svg><use href="#i-folder"/></svg><span>Groupes</span></button>
+      <button class="tool" id="btn-new" title="Nouvelle entrée (Ctrl+N)"><svg><use href="#i-add"/></svg><span>Nouvelle</span></button>
+      <button class="tool" id="btn-edit" title="Modifier l'entrée (Ctrl+E)" disabled><svg><use href="#i-edit"/></svg><span>Modifier</span></button>
+      <button class="tool" id="btn-delete" title="Supprimer l'entrée (Suppr)" disabled><svg><use href="#i-delete"/></svg><span>Supprimer</span></button>
+      <span class="sep"></span>
+      <button class="tool" id="btn-copy-user" title="Copier l'identifiant (Ctrl+B)" disabled><svg><use href="#i-user"/></svg><span>Identifiant</span></button>
+      <button class="tool" id="btn-copy-pass" title="Copier le mot de passe (Ctrl+C)" disabled><svg><use href="#i-key"/></svg><span>Mot de passe</span></button>
+      <button class="tool" id="btn-copy-url" title="Copier l'URL (Ctrl+U)" disabled><svg><use href="#i-link"/></svg><span>URL</span></button>
+      <button class="tool" id="btn-copy-totp" title="Copier le code 2FA (Ctrl+T)" disabled><svg><use href="#i-clock"/></svg><span>2FA</span></button>
+      <button class="tool" id="btn-autotype" title="Saisie automatique dans la fenêtre précédente (Ctrl+Maj+V)" disabled><svg><use href="#i-keyboard"/></svg><span>Saisie auto</span></button>
+      <span class="sep"></span>
+      <button class="tool" id="btn-generator" title="Générateur de mots de passe (Ctrl+G)"><svg><use href="#i-dice"/></svg><span>Générateur</span></button>
+      <button class="tool" id="btn-reports" title="Rapports de sécurité (Ctrl+R)"><svg><use href="#i-shield"/></svg><span>Rapports</span></button>
+      <button class="tool" id="btn-sync" title="Synchroniser avec le serveur"><svg><use href="#i-sync"/></svg><span>Synchroniser</span></button>
+      <button class="tool" id="btn-settings" title="Paramètres (Ctrl+,)"><svg><use href="#i-gear"/></svg><span>Paramètres</span></button>
+      <button class="tool" id="btn-lock" title="Verrouiller (Ctrl+L)"><svg><use href="#i-lock"/></svg><span>Verrouiller</span></button>
+      <span class="grow"></span>
+      <div class="searchbox">
+        <svg><use href="#i-search"/></svg>
+        <input id="search" type="search" placeholder="Rechercher… (Ctrl+F)" spellcheck="false" aria-label="Rechercher">
+        <button id="btn-search-help" class="icon-btn" title="Syntaxe de recherche" aria-label="Aide sur la recherche">?</button>
+      </div>
+    </header>
+
+    <div class="workspace" id="workspace">
+      <aside class="sidebar" aria-label="Groupes">
+        <div class="side-head">
+          <span>Groupes</span>
+          <span class="side-actions">
+            <button class="icon-btn" id="btn-group-start" title="Ouvrir ce groupe au démarrage" aria-pressed="false"><svg><use href="#i-home"/></svg></button>
+            <button class="icon-btn" id="btn-group-add" title="Nouveau groupe"><svg><use href="#i-add"/></svg></button>
+            <button class="icon-btn" id="btn-group-rename" title="Renommer le groupe"><svg><use href="#i-edit"/></svg></button>
+            <button class="icon-btn" id="btn-group-delete" title="Supprimer le groupe"><svg><use href="#i-delete"/></svg></button>
+          </span>
+        </div>
+        <ul id="tree" class="tree" role="tree"></ul>
+        <button id="btn-empty-bin" class="link-btn" hidden>Vider la corbeille</button>
+        <div class="side-head"><span>Étiquettes</span></div>
+        <ul id="taglist" class="taglist"></ul>
+      </aside>
+      <div class="side-scrim" id="side-scrim" hidden></div>
+      <div class="splitter-v" id="splitter-v" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+      <main class="content">
+        <div id="browse" class="browse">
+          <div id="search-banner" class="search-banner" hidden>
+            <span id="search-count"></span>
+            <label class="inline"><input type="checkbox" id="search-in-group"> Limiter au groupe sélectionné</label>
+          </div>
+          <div class="table-wrap">
+            <table id="entries" class="entries" aria-label="Entrées">
+              <thead>
+                <tr>
+                  <th data-sort="title" class="sortable">Titre</th>
+                  <th data-sort="username" class="sortable">Identifiant</th>
+                  <th data-sort="url" class="sortable">URL</th>
+                  <th data-sort="modified" class="sortable col-date">Modifiée</th>
+                  <th data-sort="expires" class="sortable col-date">Expire</th>
+                </tr>
+              </thead>
+              <tbody id="entries-body"></tbody>
+            </table>
+            <p id="entries-empty" class="muted empty" hidden>Aucune entrée.</p>
+          </div>
+          <div class="splitter-h" id="splitter-h" role="separator" aria-orientation="horizontal" tabindex="0"></div>
+
+          <section id="preview" class="preview" aria-label="Aperçu de l'entrée">
+            <p id="preview-empty" class="muted empty">Sélectionnez une entrée.</p>
+            <div id="preview-body" hidden>
+              <div class="preview-head">
+                <button id="pv-back" class="mini" title="Retour aux entrées (Échap)" aria-label="Retour aux entrées"><svg><use href="#i-back"/></svg></button>
+                <h2 id="pv-title"></h2>
+                <div class="tabs" role="tablist">
+                  <button role="tab" class="tab" data-pvtab="general" aria-selected="true">Général</button>
+                  <button role="tab" class="tab" data-pvtab="advanced" aria-selected="false">Avancé</button>
+                </div>
+                <button id="btn-restore-entry" hidden><svg><use href="#i-restore"/></svg> Restaurer</button>
+              </div>
+              <div data-pvpanel="general" class="pv-panel">
+                <dl class="fields">
+                  <dt>Identifiant</dt>
+                  <dd><span id="pv-username" class="sel"></span>
+                    <button class="mini" data-copy="username" title="Copier"><svg><use href="#i-copy"/></svg></button></dd>
+                  <dt>Mot de passe</dt>
+                  <dd><code id="pv-password" class="sel">••••••••••</code>
+                    <button class="mini" id="pv-reveal" title="Afficher"><svg><use href="#i-eye"/></svg></button>
+                    <button class="mini" data-copy="password" title="Copier"><svg><use href="#i-copy"/></svg></button></dd>
+                  <dt>URL</dt>
+                  <dd><span id="pv-url" class="sel"></span>
+                    <button class="mini" data-copy="url" title="Copier"><svg><use href="#i-copy"/></svg></button></dd>
+                  <dt id="pv-totp-label" hidden>Code 2FA</dt>
+                  <dd id="pv-totp-row" hidden><code id="pv-totp"></code> <span class="ring" id="pv-totp-left"></span>
+                    <button class="mini" data-copy="totp" title="Copier"><svg><use href="#i-copy"/></svg></button></dd>
+                  <dt>Expire</dt>
+                  <dd id="pv-expires"></dd>
+                  <dt>Étiquettes</dt>
+                  <dd id="pv-tags" class="chips"></dd>
+                  <dt>Notes</dt>
+                  <dd><pre id="pv-notes" class="sel"></pre></dd>
+                </dl>
+              </div>
+              <div data-pvpanel="advanced" class="pv-panel" hidden>
+                <h3>Attributs</h3>
+                <dl class="fields" id="pv-custom"></dl>
+                <p class="muted" id="pv-custom-empty">Aucun attribut.</p>
+                <h3>Pièces jointes</h3>
+                <ul id="pv-attachments" class="attachments"></ul>
+                <p class="muted" id="pv-attachments-empty">Aucune pièce jointe.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Édition d'une entrée -->
+        <form id="editor" method="dialog" class="editor" hidden autocomplete="off">
+          <div class="editor-head">
+            <h2 id="ed-heading">Nouvelle entrée</h2>
+            <div class="tabs" role="tablist">
+              <button type="button" role="tab" class="tab" data-edtab="entry" aria-selected="true">Entrée</button>
+              <button type="button" role="tab" class="tab" data-edtab="advanced" aria-selected="false">Avancé</button>
+              <button type="button" role="tab" class="tab" data-edtab="otp" aria-selected="false">2FA</button>
+              <button type="button" role="tab" class="tab" data-edtab="history" aria-selected="false">Historique</button>
+              <button type="button" role="tab" class="tab" data-edtab="browser" aria-selected="false">Navigateur</button>
+              <button type="button" role="tab" class="tab" data-edtab="autotype" aria-selected="false">Saisie auto</button>
+              <button type="button" role="tab" class="tab" data-edtab="ssh" aria-selected="false">SSH</button>
+            </div>
+          </div>
+          <div class="editor-body">
+            <div data-edpanel="entry" class="ed-panel">
+              <div class="formgrid">
+                <label for="ed-title">Titre</label>
+                <input id="ed-title" name="title" maxlength="65536">
+                <label for="ed-username">Identifiant</label>
+                <input id="ed-username" name="username" spellcheck="false">
+                <label for="ed-password">Mot de passe</label>
+                <span class="row">
+                  <input id="ed-password" name="password" type="password" spellcheck="false">
+                  <button type="button" class="mini" id="ed-toggle-pw" title="Afficher / masquer"><svg><use href="#i-eye"/></svg></button>
+                  <button type="button" class="mini" id="ed-generate" title="Générer"><svg><use href="#i-dice"/></svg></button>
+                </span>
+                <span></span>
+                <div class="meter" id="ed-meter"><span></span><small id="ed-meter-text"></small></div>
+                <label for="ed-url">URL</label>
+                <input id="ed-url" name="url" spellcheck="false">
+                <label for="ed-tag-input">Étiquettes</label>
+                <div class="tag-editor" id="ed-tags">
+                  <input id="ed-tag-input" placeholder="Ajouter… (Entrée)" spellcheck="false" list="ed-tag-suggestions">
+                  <datalist id="ed-tag-suggestions"></datalist>
+                </div>
+                <label for="ed-expires-on">Expire</label>
+                <span class="row">
+                  <label class="inline"><input type="checkbox" id="ed-expires-on"> le</label>
+                  <input type="datetime-local" id="ed-expires" disabled>
+                  <select id="ed-expires-preset" title="Préréglages" disabled>
+                    <option value="">Préréglage…</option>
+                    <option value="7">1 semaine</option>
+                    <option value="30">1 mois</option>
+                    <option value="91">3 mois</option>
+                    <option value="182">6 mois</option>
+                    <option value="365">1 an</option>
+                  </select>
+                </span>
+                <label for="ed-notes">Notes</label>
+                <textarea id="ed-notes" name="notes" rows="6"></textarea>
+              </div>
+            </div>
+
+            <div data-edpanel="advanced" class="ed-panel" hidden>
+              <h3>Attributs supplémentaires</h3>
+              <table class="attr-table">
+                <thead><tr><th>Nom</th><th>Valeur</th><th>Protégé</th><th></th></tr></thead>
+                <tbody id="ed-attrs"></tbody>
+              </table>
+              <button type="button" id="ed-attr-add"><svg><use href="#i-add"/></svg> Ajouter un attribut</button>
+              <h3>Pièces jointes</h3>
+              <p class="hint" id="ed-att-hint">Les pièces jointes sont enregistrées immédiatement.</p>
+              <ul id="ed-attachments" class="attachments"></ul>
+              <button type="button" id="ed-attach"><svg><use href="#i-add"/></svg> Joindre un fichier…</button>
+            </div>
+
+            <div data-edpanel="otp" class="ed-panel" hidden>
+              <label for="ed-otp">Lien 2FA <small>(otpauth://totp/…)</small></label>
+              <input id="ed-otp" name="otp" spellcheck="false">
+              <label class="inline" id="ed-otp-remove-row" hidden><input type="checkbox" id="ed-otp-remove"> Retirer la 2FA de cette entrée</label>
+              <p class="hint">Le lien existant n'est jamais affiché : laissez le champ vide pour le garder.</p>
+            </div>
+
+            <div data-edpanel="history" class="ed-panel" hidden>
+              <table class="entries history">
+                <thead><tr><th>Date</th><th>Titre</th><th>Identifiant</th><th>URL</th></tr></thead>
+                <tbody id="ed-history"></tbody>
+              </table>
+              <p class="muted" id="ed-history-empty">Aucune version précédente.</p>
+              <div id="ed-history-detail" class="history-detail" hidden>
+                <dl class="fields">
+                  <dt>Mot de passe</dt>
+                  <dd><code id="hd-password">••••••••••</code>
+                    <button type="button" class="mini" id="hd-reveal" title="Afficher"><svg><use href="#i-eye"/></svg></button></dd>
+                  <dt>URL</dt><dd id="hd-url"></dd>
+                  <dt>Notes</dt><dd><pre id="hd-notes"></pre></dd>
+                </dl>
+                <button type="button" id="hd-restore"><svg><use href="#i-restore"/></svg> Restaurer cette version</button>
+              </div>
+            </div>
+
+            <div data-edpanel="browser" class="ed-panel" hidden>
+              <p class="hint" id="ed-br-new" hidden>Enregistrez d'abord l'entrée pour régler son accès depuis le navigateur.</p>
+              <div id="ed-br">
+                <label class="inline"><input type="checkbox" id="ed-br-hidden"> Ne jamais proposer cette entrée au navigateur</label>
+                <h3>Sites autorisés sans confirmation</h3>
+                <ul id="ed-br-allow" class="site-list"></ul>
+                <h3>Sites refusés</h3>
+                <ul id="ed-br-deny" class="site-list"></ul>
+                <p class="hint">Les sites s'ajoutent quand vous cochez « Se souvenir de ce choix » lors d'une demande du
+                  navigateur. L'extension utilise l'URL de l'entrée et les attributs <code>KP2A_URL</code> pour trouver
+                  les entrées d'un site.</p>
+              </div>
+            </div>
+
+            <div data-edpanel="autotype" class="ed-panel" hidden>
+              <p class="hint" id="ed-at-new" hidden>Enregistrez d'abord l'entrée pour régler sa saisie automatique.</p>
+              <div id="ed-at">
+                <label class="inline"><input type="checkbox" id="ed-at-enabled"> Saisie automatique activée pour cette entrée</label>
+                <label>Séquence de cette entrée
+                  <input id="ed-at-sequence" maxlength="1024" spellcheck="false" autocomplete="off" placeholder="Séquence par défaut">
+                </label>
+                <h3>Associations de fenêtres</h3>
+                <p class="hint">Titre de fenêtre (<code>*</code> = n'importe quel texte) et, au besoin, une séquence propre à ces
+                  fenêtres. Sous X11, le raccourci global propose d'abord les entrées associées à la fenêtre active.</p>
+                <ul id="ed-at-assoc" class="assoc-list"></ul>
+                <button type="button" class="small" id="ed-at-add"><svg><use href="#i-add"/></svg> Ajouter une fenêtre</button>
+              </div>
+            </div>
+
+            <div data-edpanel="ssh" class="ed-panel" hidden>
+              <p class="hint" id="ed-ssh-new" hidden>Enregistrez d'abord l'entrée (et joignez-y la clé privée) pour l'utiliser avec
+                l'agent SSH.</p>
+              <div id="ed-ssh">
+                <label class="inline"><input type="checkbox" id="ed-ssh-allow"> Utiliser la clé de cette entrée avec l'agent SSH</label>
+                <div id="ed-ssh-opts">
+                  <div class="two-cols">
+                    <label>Clé privée
+                      <select id="ed-ssh-source">
+                        <option value="attachment">Pièce jointe</option>
+                        <option value="file">Fichier sur cet appareil</option>
+                      </select>
+                    </label>
+                    <label id="ed-ssh-attachment-row">Pièce jointe
+                      <select id="ed-ssh-attachment"></select>
+                    </label>
+                    <label id="ed-ssh-file-row" hidden>Fichier
+                      <input id="ed-ssh-file" maxlength="4096" spellcheck="false" autocomplete="off" placeholder="~/.ssh/id_ed25519">
+                    </label>
+                  </div>
+                  <p class="hint">Format OpenSSH (celui de <code>ssh-keygen</code>). Une clé protégée par une phrase de passe est
+                    déverrouillée avec le mot de passe de l'entrée.</p>
+                  <dl class="ssh-key" id="ed-ssh-key" hidden>
+                    <dt>Type</dt><dd id="ed-ssh-key-type"></dd>
+                    <dt>Empreinte</dt><dd><code id="ed-ssh-key-fp"></code></dd>
+                    <dt>Commentaire</dt><dd id="ed-ssh-key-comment"></dd>
+                  </dl>
+                  <p class="warning" id="ed-ssh-key-error" hidden></p>
+                  <label class="inline"><input type="checkbox" id="ed-ssh-add-open"> Ajouter à l'agent au déverrouillage du coffre</label>
+                  <label class="inline"><input type="checkbox" id="ed-ssh-remove-close"> Retirer de l'agent au verrouillage du coffre</label>
+                  <label class="inline"><input type="checkbox" id="ed-ssh-confirm"> Demander confirmation à chaque utilisation
+                    <small class="muted">(ssh-askpass)</small></label>
+                  <span class="row">
+                    <label class="inline"><input type="checkbox" id="ed-ssh-lifetime-on"> Retirer de l'agent après</label>
+                    <input id="ed-ssh-lifetime" type="number" min="1" max="2592000" step="60" aria-label="Durée de vie (secondes)">
+                    <span>secondes</span>
+                  </span>
+                  <div class="row ssh-actions">
+                    <button type="button" class="small" id="ed-ssh-add"><svg><use href="#i-add"/></svg> Ajouter à l'agent</button>
+                    <button type="button" class="small" id="ed-ssh-remove">Retirer de l'agent</button>
+                    <button type="button" class="small" id="ed-ssh-copy-pub"><svg><use href="#i-copy"/></svg> Copier la clé publique</button>
+                  </div>
+                  <p class="summary" id="ed-ssh-state" role="status"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="editor-foot">
+            <p class="error" id="ed-error" role="alert"></p>
+            <button type="button" id="ed-cancel">Annuler</button>
+            <button type="submit" class="primary">Enregistrer</button>
+          </div>
+        </form>
+      </main>
+    </div>
+    <footer class="status"><span id="status" role="status"></span><span id="status-right" class="muted"></span></footer>
+  </section>
+
+  <!-- Générateur -->
+  <dialog id="gen-dialog" class="gen-dialog">
+    <form id="gen-form" method="dialog">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab" data-gentab="password" aria-selected="true">Mot de passe</button>
+        <button type="button" role="tab" class="tab" data-gentab="passphrase" aria-selected="false">Phrase de passe</button>
+      </div>
+      <div class="row gen-out">
+        <input id="gen-output" spellcheck="false" aria-label="Valeur générée">
+        <button type="button" class="mini" id="gen-regen" title="Régénérer"><svg><use href="#i-sync"/></svg></button>
+        <button type="button" class="mini" id="gen-copy" title="Copier"><svg><use href="#i-copy"/></svg></button>
+      </div>
+      <div class="meter" id="gen-meter"><span></span><small id="gen-meter-text"></small></div>
+      <div data-genpanel="password">
+        <div class="row">
+          <label for="gen-length">Longueur</label>
+          <input type="range" id="gen-length-range" min="8" max="128" value="20">
+          <input type="number" id="gen-length" min="8" max="1024" value="20" class="num">
+        </div>
+        <div class="toggles" role="group" aria-label="Types de caractères">
+          <label class="toggle"><input type="checkbox" id="gen-upper" checked><span>A-Z</span></label>
+          <label class="toggle"><input type="checkbox" id="gen-lower" checked><span>a-z</span></label>
+          <label class="toggle"><input type="checkbox" id="gen-digits" checked><span>0-9</span></label>
+          <label class="toggle"><input type="checkbox" id="gen-symbols" checked><span>/*+&amp;…</span></label>
+          <label class="toggle"><input type="checkbox" id="gen-extended"><span>ASCII étendu</span></label>
+        </div>
+        <label class="inline"><input type="checkbox" id="gen-ambiguous"> Exclure les caractères semblables (l I 1 O 0…)</label>
+        <label class="inline"><input type="checkbox" id="gen-every" checked> Au moins un caractère de chaque type</label>
+        <div class="formgrid">
+          <label for="gen-include">Inclure aussi</label><input id="gen-include" spellcheck="false" maxlength="256">
+          <label for="gen-exclude">Exclure</label><input id="gen-exclude" spellcheck="false" maxlength="256">
+        </div>
+      </div>
+      <div data-genpanel="passphrase" hidden>
+        <div class="row">
+          <label for="gen-words">Nombre de mots</label>
+          <input type="range" id="gen-words-range" min="3" max="20" value="7">
+          <input type="number" id="gen-words" min="1" max="100" value="7" class="num">
+        </div>
+        <div class="formgrid">
+          <label for="gen-separator">Séparateur</label><input id="gen-separator" value=" " maxlength="16" spellcheck="false">
+          <label for="gen-case">Casse</label>
+          <select id="gen-case">
+            <option value="lower">minuscules</option>
+            <option value="upper">MAJUSCULES</option>
+            <option value="title">Première Lettre</option>
+          </select>
+        </div>
+        <p class="hint">Liste de mots de l'EFF (7772 mots, licence CC BY 3.0).</p>
+      </div>
+      <p class="error" id="gen-error"></p>
+      <div class="actions">
+        <button type="button" id="gen-close">Fermer</button>
+        <button type="button" id="gen-apply" class="primary" hidden>Appliquer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Rapports de sécurité -->
+  <dialog id="reports-dialog" class="reports-dialog">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" class="tab" data-reptab="health" aria-selected="true">Bilan de santé</button>
+      <button type="button" role="tab" class="tab" data-reptab="hibp" aria-selected="false">Have I Been Pwned</button>
+    </div>
+    <div data-reppanel="health">
+      <p id="health-summary" class="summary"></p>
+      <label class="inline"><input type="checkbox" id="health-show-excluded"> Afficher les entrées exclues des rapports</label>
+      <div class="report-wrap">
+        <table class="report" id="health-table">
+          <thead><tr><th>Qualité</th><th>Titre</th><th>Groupe</th><th>Problèmes</th><th></th></tr></thead>
+          <tbody id="health-body"></tbody>
+        </table>
+        <p id="health-empty" class="muted" hidden>Aucun problème détecté.</p>
+      </div>
+    </div>
+    <div data-reppanel="hibp" hidden>
+      <p class="hint">
+        Vérifie si vos mots de passe apparaissent dans des fuites de données connues. Pour chaque mot de
+        passe, seuls les 5 premiers caractères de son empreinte SHA-1 sont envoyés à
+        <strong>api.pwnedpasswords.com</strong> (k-anonymat) : ni le mot de passe, ni son empreinte complète ne
+        quittent cet appareil. Le service apprend seulement qu'une demande vient de votre adresse IP.
+      </p>
+      <div class="row">
+        <button type="button" id="hibp-run" class="primary">Lancer la vérification</button>
+        <span id="hibp-summary" class="summary"></span>
+      </div>
+      <label class="inline"><input type="checkbox" id="hibp-show-excluded"> Afficher les entrées exclues des rapports</label>
+      <div class="report-wrap">
+        <table class="report" id="hibp-table" hidden>
+          <thead><tr><th>Titre</th><th>Groupe</th><th>Fuites</th><th></th></tr></thead>
+          <tbody id="hibp-body"></tbody>
+        </table>
+        <p id="hibp-empty" class="muted" hidden>Aucun mot de passe compromis trouvé.</p>
+      </div>
+    </div>
+    <p class="error" id="reports-error"></p>
+    <div class="actions"><button type="button" id="reports-close" class="primary">Fermer</button></div>
+  </dialog>
+
+  <!-- Paramètres -->
+  <div id="ctx-menu" class="ctx-menu" role="menu" hidden></div>
+  <dialog id="settings-dialog" class="settings-dialog" aria-label="Paramètres">
+    <div class="settings">
+      <button type="button" class="vd-close settings-x" title="Fermer (Échap)" aria-label="Fermer les paramètres"><svg><use href="#i-x"/></svg></button>
+      <nav class="settings-nav" role="tablist" aria-orientation="vertical" aria-label="Sections">
+        <h2>Paramètres</h2>
+        <button type="button" role="tab" class="tab" data-vdtab="appearance" aria-selected="true"><svg><use href="#i-palette"/></svg>Apparence</button>
+        <button type="button" role="tab" class="tab" data-vdtab="shortcuts" aria-selected="false"><svg><use href="#i-keyboard"/></svg>Raccourcis</button>
+        <button type="button" role="tab" class="tab" data-vdtab="autotype" aria-selected="false"><svg><use href="#i-edit"/></svg>Saisie auto</button>
+        <button type="button" role="tab" class="tab" data-vdtab="ssh" aria-selected="false"><svg><use href="#i-terminal"/></svg>Agent SSH</button>
+        <button type="button" role="tab" class="tab" data-vdtab="browser" data-needs-vault aria-selected="false"><svg><use href="#i-link"/></svg>Navigateur</button>
+        <button type="button" role="tab" class="tab" data-vdtab="import" data-needs-vault aria-selected="false"><svg><use href="#i-add"/></svg>Importer</button>
+        <button type="button" role="tab" class="tab" data-vdtab="export" data-needs-vault aria-selected="false"><svg><use href="#i-box"/></svg>Exporter</button>
+        <button type="button" role="tab" class="tab" data-vdtab="keyfile" data-needs-vault aria-selected="false"><svg><use href="#i-key"/></svg>Fichier clé</button>
+        <button type="button" role="tab" class="tab" data-vdtab="account" data-needs-vault aria-selected="false"><svg><use href="#i-user"/></svg>Compte</button>
+      </nav>
+      <div class="settings-body">
+    <form id="theme-form" data-vdpanel="appearance" method="dialog">
+      <h3>Thème</h3>
+        <div class="theme-grid" role="radiogroup" aria-label="Thème">
+          <label class="theme-card"><input type="radio" name="theme" value="light"><span class="swatch light"><i></i><i></i><i></i></span>Clair</label>
+          <label class="theme-card"><input type="radio" name="theme" value="pastel"><span class="swatch pastel"><i></i><i></i><i></i></span>Pastel</label>
+          <label class="theme-card"><input type="radio" name="theme" value="dark"><span class="swatch dark"><i></i><i></i><i></i></span>Sombre</label>
+          <label class="theme-card"><input type="radio" name="theme" value="system"><span class="swatch system"><i></i><i></i><i></i></span>Système</label>
+        </div>
+        <p class="hint">« Système » suit le mode clair ou sombre de votre bureau.</p>
+        <h3>Couleur</h3>
+        <div class="accent-grid" role="radiogroup" aria-label="Couleur d'accent">
+          <label class="accent-dot accent-green" title="Vert"><input type="radio" name="accent" value="green" aria-label="Vert"></label>
+          <label class="accent-dot accent-emerald" title="Émeraude"><input type="radio" name="accent" value="emerald" aria-label="Émeraude"></label>
+          <label class="accent-dot accent-teal" title="Sarcelle"><input type="radio" name="accent" value="teal" aria-label="Sarcelle"></label>
+          <label class="accent-dot accent-blue" title="Bleu"><input type="radio" name="accent" value="blue" aria-label="Bleu"></label>
+          <label class="accent-dot accent-indigo" title="Indigo"><input type="radio" name="accent" value="indigo" aria-label="Indigo"></label>
+          <label class="accent-dot accent-violet" title="Violet"><input type="radio" name="accent" value="violet" aria-label="Violet"></label>
+          <label class="accent-dot accent-pink" title="Framboise"><input type="radio" name="accent" value="pink" aria-label="Framboise"></label>
+          <label class="accent-dot accent-orange" title="Orange"><input type="radio" name="accent" value="orange" aria-label="Orange"></label>
+          <label class="accent-dot accent-amber" title="Ambre"><input type="radio" name="accent" value="amber" aria-label="Ambre"></label>
+          <label class="accent-dot accent-graphite" title="Graphite"><input type="radio" name="accent" value="graphite" aria-label="Graphite"></label>
+        </div>
+        <p class="accent-name" id="accent-name"></p>
+        <h3>Icônes des sites</h3>
+        <label class="inline"><input type="checkbox" id="favicons-toggle"> Afficher l'icône du site de chaque entrée</label>
+        <p class="hint">Seul le nom du site est demandé (https://site/favicon.ico), jamais l'adresse complète ni vos identifiants. Les adresses locales (192.168…, .local) ne sont jamais contactées.</p>
+      <div class="actions"><button type="button" class="vd-close primary">Fermer</button></div>
+    </form>
+
+    <form id="shortcuts-form" data-vdpanel="shortcuts" method="dialog" hidden>
+      <p class="hint">Cliquez sur un raccourci puis appuyez sur la nouvelle combinaison (Échap annule, Retour arrière
+        retire le raccourci). Ces raccourcis fonctionnent dans la fenêtre de KittyPass ; le raccourci global se règle
+        dans « Saisie auto ».</p>
+      <table class="shortcut-table">
+        <tbody id="shortcut-list"></tbody>
+      </table>
+      <p class="error" id="shortcuts-error" role="alert"></p>
+      <div class="actions">
+        <button type="button" id="shortcuts-reset">Tout réinitialiser</button>
+        <button type="button" class="vd-close primary">Fermer</button>
+      </div>
+    </form>
+
+    <form id="autotype-form" data-vdpanel="autotype" method="dialog" autocomplete="off" hidden>
+      <p class="summary" id="at-state" role="status"></p>
+      <label>Raccourci global
+        <span class="row">
+          <button type="button" class="key-capture" id="at-global">Aucun</button>
+          <button type="button" class="small" id="at-global-clear">Retirer</button>
+        </span>
+      </label>
+      <p class="hint">Depuis n'importe quelle fenêtre, ouvre KittyPass sur le choix de l'entrée à taper. Sous Wayland,
+        le bureau demande de confirmer le raccourci.</p>
+      <label>Méthode
+        <select name="method">
+          <option value="auto">Automatique</option>
+          <option value="portal">Portail du bureau (Wayland : KDE, GNOME…)</option>
+          <option value="x11">X11 (XTest)</option>
+        </select>
+      </label>
+      <label>Séquence par défaut
+        <input name="default_sequence" maxlength="1024" spellcheck="false">
+      </label>
+      <details class="hint">
+        <summary>Syntaxe des séquences</summary>
+        <p><code>{USERNAME}</code> <code>{PASSWORD}</code> <code>{URL}</code> <code>{TITLE}</code> <code>{NOTES}</code>
+          <code>{TOTP}</code> <code>{S:Attribut}</code> — <code>{TAB}</code> <code>{ENTER}</code> (ou <code>~</code>)
+          <code>{SPACE}</code> <code>{BACKSPACE}</code> <code>{DELETE}</code> <code>{ESC}</code> <code>{UP}</code>…
+          <code>{F1}</code>… avec répétition <code>{TAB 3}</code> — modificateurs <code>+</code> Maj, <code>^</code> Ctrl,
+          <code>%</code> Alt, <code>#</code> Super ; <code>{+}</code> <code>{^}</code> <code>{%}</code> <code>{~}</code>
+          <code>{#}</code> <code>{{}</code> <code>{}}</code> tapent le caractère — <code>{DELAY 500}</code> pause,
+          <code>{DELAY=50}</code> délai entre touches, <code>{CLEARFIELD}</code> vide le champ.</p>
+      </details>
+      <div class="two-cols">
+        <label>Attente avant de taper (ms)
+          <input name="start_delay_ms" type="number" min="0" max="10000" step="50">
+        </label>
+        <label>Délai entre les touches (ms)
+          <input name="key_delay_ms" type="number" min="0" max="1000" step="5">
+        </label>
+      </div>
+      <p class="error" id="at-error" role="alert"></p>
+      <p class="summary" id="at-done" role="status"></p>
+      <div class="actions">
+        <button type="button" class="vd-close">Fermer</button>
+        <button type="submit" class="primary">Enregistrer</button>
+      </div>
+    </form>
+
+      <form id="import-form" data-vdpanel="import" method="dialog" autocomplete="off">
+        <label>Format
+          <select name="format">
+            <option value="csv">CSV (KeePassXC, navigateurs, LastPass…)</option>
+            <option value="kdbx">Coffre KeePass / KeePassXC (.kdbx)</option>
+            <option value="bitwarden">Bitwarden (JSON non chiffré)</option>
+            <option value="1pux">1Password (.1pux)</option>
+          </select>
+        </label>
+        <div class="row">
+          <span class="path muted" id="import-path">Aucun fichier choisi</span>
+          <button type="button" id="import-pick">Choisir le fichier…</button>
+        </div>
+        <div id="import-kdbx" hidden>
+          <label>Mot de passe de ce coffre
+            <input name="password" type="password">
+          </label>
+          <div class="row">
+            <span class="path muted" id="import-keyfile-path">Sans fichier clé</span>
+            <button type="button" class="small" id="import-keyfile-pick">Fichier clé…</button>
+            <button type="button" class="small" id="import-keyfile-clear" hidden>Retirer</button>
+          </div>
+        </div>
+        <label>Nom du nouveau groupe
+          <input name="name" maxlength="128" spellcheck="false" placeholder="nom du fichier">
+        </label>
+        <p class="hint" id="import-dest"></p>
+        <p class="hint">Les entrées sont ajoutées dans un nouveau groupe : rien n'est remplacé. Pensez à supprimer le
+          fichier d'export en clair une fois l'import terminé.</p>
+        <div id="import-result" class="import-result" hidden>
+          <p id="import-summary" class="summary"></p>
+          <ul id="import-warnings" class="warnings"></ul>
+        </div>
+        <p class="error" id="import-error" role="alert"></p>
+        <div class="actions">
+          <button type="button" class="vd-close">Fermer</button>
+          <button type="submit" class="primary" id="import-run" disabled>Importer</button>
+        </div>
+      </form>
+
+      <form id="export-form" data-vdpanel="export" method="dialog" autocomplete="off" hidden>
+        <div class="segmented export-formats" role="radiogroup">
+          <label><input type="radio" name="format" value="kdbx" checked> Copie .kdbx</label>
+          <label><input type="radio" name="format" value="csv"> CSV</label>
+          <label><input type="radio" name="format" value="xml"> KeePass XML</label>
+          <label><input type="radio" name="format" value="html"> HTML imprimable</label>
+        </div>
+        <div id="export-kdbx">
+          <p class="hint">Copie chiffrée de tout le coffre (historique et corbeille compris), ouvrable par KeePassXC.
+            Choisissez sa propre clé : elle ne change pas celle de votre coffre.</p>
+          <label>Mot de passe de la copie
+            <input name="password" type="password" minlength="10">
+          </label>
+          <label>Confirmer
+            <input name="confirm" type="password">
+          </label>
+          <div class="row">
+            <span class="path muted" id="export-keyfile-path">Sans fichier clé</span>
+            <button type="button" class="small" id="export-keyfile-new">Créer…</button>
+            <button type="button" class="small" id="export-keyfile-pick">Choisir…</button>
+            <button type="button" class="small" id="export-keyfile-clear" hidden>Retirer</button>
+          </div>
+        </div>
+        <div id="export-clear" hidden>
+          <p class="warning"><strong>Attention :</strong> ce fichier contiendra tous vos mots de passe <strong>en clair</strong>.
+            Toute personne ou tout programme qui y accède pourra les lire. Supprimez-le dès qu'il n'est plus utile.</p>
+          <p class="hint" id="export-note"></p>
+          <label class="inline"><input type="checkbox" name="understood"> J'ai compris : exporter en clair</label>
+        </div>
+        <p class="error" id="export-error" role="alert"></p>
+        <p class="summary" id="export-done" role="status"></p>
+        <div class="actions">
+          <button type="button" class="vd-close">Fermer</button>
+          <button type="submit" class="primary" id="export-run">Exporter…</button>
+        </div>
+      </form>
+
+      <form id="keyfile-form" data-vdpanel="keyfile" method="dialog" autocomplete="off" hidden>
+        <p id="keyfile-status" class="summary"></p>
+        <p class="hint">Un fichier clé s'ajoute au mot de passe maître : il faut les deux pour ouvrir le coffre.
+          Le fichier n'est jamais envoyé au serveur. Sauvegardez-le : sans lui, le coffre est perdu. Les autres
+          appareils devront le choisir au prochain déverrouillage.</p>
+        <div class="segmented" role="radiogroup">
+          <label><input type="radio" name="action" value="set" checked> Utiliser un fichier clé</label>
+          <label><input type="radio" name="action" value="remove"> Retirer le fichier clé</label>
+        </div>
+        <div class="row" id="keyfile-choose">
+          <span class="path muted" id="keyfile-path">Aucun fichier choisi</span>
+          <button type="button" class="small" id="keyfile-new">Créer…</button>
+          <button type="button" class="small" id="keyfile-pick">Choisir…</button>
+        </div>
+        <label class="inline" id="keyfile-remember-row"><input type="checkbox" name="remember" checked> Mémoriser son emplacement sur cet appareil</label>
+        <label>Mot de passe maître actuel
+          <input name="password" type="password" required>
+        </label>
+        <p class="hint">Le changement est enregistré seulement après l'accord du serveur (connexion nécessaire).</p>
+        <p class="error" id="keyfile-error" role="alert"></p>
+        <div class="actions">
+          <button type="button" class="vd-close">Fermer</button>
+          <button type="submit" class="primary" id="keyfile-run">Appliquer</button>
+        </div>
+      </form>
+
+      <div id="account-panel" data-vdpanel="account" hidden>
+        <p class="summary" id="acct-summary" role="status"></p>
+
+        <form id="lock-form" class="acct-section" autocomplete="off">
+          <h3>Verrouillage automatique</h3>
+          <div class="row">
+            <label class="inline"><input type="checkbox" name="on"> Verrouiller après</label>
+            <input name="minutes" type="number" min="1" max="1440" step="1" class="num" aria-label="Minutes d'inactivité"> min d'inactivité
+            <button type="submit" class="small">Enregistrer</button>
+          </div>
+          <p class="hint">Sur cet appareil seulement. Le coffre se verrouille aussi à la fermeture de l'application.</p>
+          <p class="error" id="lock-error" role="alert"></p>
+        </form>
+
+        <section class="acct-section" id="autofill-section" hidden>
+          <h3>Remplissage automatique</h3>
+          <p id="autofill-state" class="hint"></p>
+          <div class="actions"><button type="button" id="autofill-open" class="small">Choisir KittyPass dans Android</button></div>
+          <p class="hint">Dans les applis et le navigateur, appuyez sur un champ d'identifiant : Android propose les
+            entrées dont l'URL correspond au site, ou <code>androidapp://nom.du.paquet</code> pour une appli.
+            KittyPass doit être ouvert et déverrouillé.</p>
+        </section>
+
+        <section class="acct-section" id="bio-section">
+          <h3 id="bio-title">Empreinte digitale</h3>
+          <p id="bio-state" class="hint"></p>
+          <form id="bio-form" autocomplete="off" hidden>
+            <label>Mot de passe maître <input name="password" type="password" required></label>
+            <div class="actions"><button type="submit" class="primary" id="bio-on">Activer l'empreinte</button></div>
+          </form>
+          <div class="actions"><button type="button" id="bio-off" class="small" hidden>Désactiver l'empreinte</button></div>
+          <p class="hint" id="bio-hint">Le mot de passe maître est gardé dans le trousseau de votre session (KWallet / GNOME
+            Keyring) et n'en sort qu'après une empreinte reconnue par le lecteur (fprintd).</p>
+          <p class="muted" id="bio-msg" role="status"></p>
+          <p class="error" id="bio-error" role="alert"></p>
+        </section>
+
+        <form id="pw-form" class="acct-section" autocomplete="off">
+          <h3>Mot de passe maître</h3>
+          <p class="hint">C'est aussi le mot de passe du compte. Le coffre est re-chiffré et les autres appareils sont
+            déconnectés : ils demanderont le nouveau mot de passe à leur prochaine synchronisation.</p>
+          <label>Mot de passe actuel <input name="current" type="password" required></label>
+          <label>Nouveau mot de passe <input name="new" type="password" minlength="10" required></label>
+          <label>Confirmer <input name="confirm" type="password" minlength="10" required></label>
+          <p class="error" id="pw-error" role="alert"></p>
+          <div class="actions"><button type="submit" class="primary" id="pw-run">Changer le mot de passe</button></div>
+        </form>
+
+        <section class="acct-section">
+          <h3>Double authentification (2FA)</h3>
+          <p id="tfa-state"></p>
+          <div id="tfa-setup" hidden>
+            <p class="hint">Scannez ce code avec votre application d'authentification, ou saisissez la clé à la main,
+              puis entrez le code affiché.</p>
+            <canvas id="tfa-qr" width="200" height="200" aria-label="QR code de la 2FA"></canvas>
+            <p><code id="tfa-secret" class="secret-key"></code></p>
+            <form id="tfa-enable-form" class="row" autocomplete="off">
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Code à 6 chiffres" required>
+              <button type="submit" class="primary small">Activer</button>
+            </form>
+          </div>
+          <div id="tfa-codes" class="warning" hidden>
+            <strong>Codes de secours : notez-les maintenant, ils ne seront plus affichés.</strong>
+            <p class="hint">Chacun sert une seule fois si vous perdez votre téléphone.</p>
+            <ul id="tfa-codes-list" class="codes"></ul>
+            <button type="button" class="small" id="tfa-codes-done">C'est noté</button>
+          </div>
+          <form id="tfa-disable-form" autocomplete="off" hidden>
+            <label>Mot de passe maître <input name="password" type="password" required></label>
+            <label>Code 2FA actuel <input name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
+            <div class="actions"><button type="submit" class="danger">Désactiver la 2FA</button></div>
+          </form>
+          <div class="actions" id="tfa-actions">
+            <button type="button" id="tfa-start" class="small">Activer la 2FA…</button>
+            <button type="button" id="tfa-stop" class="small" hidden>Désactiver…</button>
+          </div>
+          <p class="error" id="tfa-error" role="alert"></p>
+        </section>
+
+        <section class="acct-section">
+          <h3>Appareils connectés</h3>
+          <ul id="sess-list" class="site-list"></ul>
+          <div class="actions"><button type="button" id="sess-others" class="small">Déconnecter les autres appareils</button></div>
+          <p class="hint">Un appareil déconnecté garde son coffre local ; il lui faudra le mot de passe (et la 2FA) pour se reconnecter.</p>
+          <p class="error" id="sess-error" role="alert"></p>
+        </section>
+
+        <section class="acct-section">
+          <h3>Versions du coffre sur le serveur</h3>
+          <p class="hint">Le serveur garde les 50 dernières versions. « Récupérer » copie une version dans un nouveau
+            groupe, sans rien écraser : vous reprenez ce qu'il faut puis supprimez le reste.</p>
+          <ul id="ver-list" class="site-list versions"></ul>
+          <p class="error" id="ver-error" role="alert"></p>
+          <p class="summary" id="ver-done" role="status"></p>
+        </section>
+
+        <section class="acct-section" id="admin-section" hidden>
+          <h3>Administration du serveur</h3>
+          <p class="hint">Pour créer un compte, créez une invitation et transmettez le code à la personne. Dans KittyPass,
+            elle choisit « Créer un compte », colle le code, puis son identifiant et son mot de passe : vous ne le
+            connaissez jamais.</p>
+          <form id="invite-form" autocomplete="off">
+            <label>Valable
+              <select name="hours">
+                <option value="24">1 jour</option>
+                <option value="72" selected>3 jours</option>
+                <option value="168">7 jours</option>
+                <option value="720">30 jours</option>
+              </select>
+            </label>
+            <label class="switch-row"><input type="checkbox" name="admin">
+              <span>Compte administrateur<br><small class="muted">Il pourra lui aussi inviter et gérer les comptes.</small></span></label>
+            <div class="actions"><button type="submit" class="primary small">Créer une invitation</button></div>
+          </form>
+          <div id="invite-result" class="warning" hidden>
+            <strong>Code d'invitation (affiché une seule fois) :</strong>
+            <code id="invite-code" class="invite-code"></code>
+            <p class="hint" id="invite-info"></p>
+            <div class="actions">
+              <button type="button" class="small" id="invite-copy">Copier</button>
+              <button type="button" class="small" id="invite-done">C'est transmis</button>
+            </div>
+          </div>
+          <h3>Comptes</h3>
+          <ul id="users-list" class="site-list"></ul>
+          <p class="error" id="admin-error" role="alert"></p>
+        </section>
+
+        <div class="actions"><button type="button" class="vd-close">Fermer</button></div>
+      </div>
+
+      <form id="ssh-form" data-vdpanel="ssh" method="dialog" autocomplete="off" hidden>
+        <label class="switch-row">
+          <input type="checkbox" id="ssh-enabled" name="enabled" role="switch">
+          <span><strong>Utiliser l'agent SSH du système</strong><br>
+            <small class="muted">Comme KeePassXC : les clés des entrées réglées pour (onglet « SSH » de l'éditeur) sont
+              ajoutées à l'agent au déverrouillage et retirées au verrouillage. KittyPass n'envoie rien à un agent qui
+              tourne sous un autre utilisateur.</small></span>
+        </label>
+        <label>Agent SSH (socket)
+          <input name="socket" maxlength="4096" spellcheck="false" placeholder="Celui de SSH_AUTH_SOCK">
+        </label>
+        <p class="summary" id="ssh-state" role="status"></p>
+        <div class="warning" id="ssh-unlock-errors" hidden></div>
+        <h3>Clés dans l'agent</h3>
+        <ul id="ssh-keys" class="site-list"></ul>
+        <p class="error" id="ssh-error" role="alert"></p>
+        <p class="summary" id="ssh-done" role="status"></p>
+        <div class="actions">
+          <button type="button" class="vd-close">Fermer</button>
+          <button type="submit" class="primary">Enregistrer</button>
+        </div>
+      </form>
+
+      <form id="browser-form" data-vdpanel="browser" method="dialog" autocomplete="off" hidden>
+        <label class="switch-row">
+          <input type="checkbox" id="br-enabled" role="switch">
+          <span><strong>Utiliser KittyPass avec l'extension KeePassXC-Browser</strong><br>
+            <small class="muted">Firefox, Chromium, Chrome, Brave, Edge, Vivaldi. L'extension ne parle qu'à un seul
+              gestionnaire : désactiver rend la main à KeePassXC.</small></span>
+        </label>
+        <p class="summary" id="br-state" role="status"></p>
+        <ul id="br-browsers" class="browser-list"></ul>
+        <p class="warning" id="br-override" hidden><strong>KeePassXC</strong> a sa propre intégration navigateur activée :
+          à son prochain lancement, il reprendra la main. Désactivez-la dans KeePassXC (Outils › Paramètres ›
+          Intégration aux navigateurs) pour garder KittyPass.</p>
+        <h3>Navigateurs associés à ce coffre</h3>
+        <ul id="br-assoc" class="site-list"></ul>
+        <p class="hint">Chaque navigateur doit être associé une fois (vous lui donnez un nom). L'association est
+          enregistrée dans le coffre et suit la synchronisation ; révoquez-la si vous ne vous servez plus d'un navigateur.</p>
+        <p class="error" id="br-error" role="alert"></p>
+        <div class="actions">
+          <button type="button" class="vd-close">Fermer</button>
+        </div>
+      </form>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Saisie automatique : choix de l'entrée -->
+  <dialog id="at-dialog" class="at-dialog">
+    <form id="at-form" method="dialog" autocomplete="off">
+      <h2>Saisie automatique</h2>
+      <p class="hint" id="at-window"></p>
+      <input id="at-search" type="search" placeholder="Rechercher une entrée…" spellcheck="false" aria-label="Rechercher une entrée">
+      <ul id="at-list" class="at-list" role="listbox" aria-label="Entrées"></ul>
+      <p class="error" id="at-pick-error" role="alert"></p>
+      <div class="actions">
+        <button type="button" id="at-cancel">Annuler</button>
+        <button type="submit" class="primary" id="at-type" disabled>Taper</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Demandes de l'extension navigateur -->
+  <dialog id="bp-dialog" class="bp-dialog">
+    <form id="bp-form" method="dialog" autocomplete="off">
+      <h2 id="bp-title"></h2>
+      <p id="bp-message"></p>
+      <p class="warning" id="bp-warning" hidden></p>
+      <input id="bp-name" maxlength="64" spellcheck="false" hidden aria-label="Nom du navigateur">
+      <ul id="bp-entries" class="bp-entries"></ul>
+      <label class="inline" id="bp-remember-row" hidden><input type="checkbox" id="bp-remember"> Se souvenir de ce choix pour ce site</label>
+      <div class="actions">
+        <button type="button" id="bp-deny">Refuser</button>
+        <button type="submit" id="bp-ok" class="primary">Autoriser</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- Aide de recherche -->
+  <dialog id="help-dialog">
+    <h2>Recherche</h2>
+    <table class="help">
+      <tr><td><code>banque</code></td><td>titre, identifiant, URL, notes ou étiquettes</td></tr>
+      <tr><td><code>t: u: url: n: tag: g:</code></td><td>titre, identifiant, URL, notes, étiquette, groupe</td></tr>
+      <tr><td><code>attr: attach: uuid:</code></td><td>attribut, pièce jointe, identifiant interne</td></tr>
+      <tr><td><code>p:</code></td><td>mot de passe (uniquement si demandé)</td></tr>
+      <tr><td><code>is:expired</code></td><td>entrées expirées</td></tr>
+      <tr><td><code>-terme</code> ou <code>!terme</code></td><td>exclure</td></tr>
+      <tr><td><code>+t:exact</code></td><td>correspondance exacte du champ entier</td></tr>
+      <tr><td><code>* ?</code></td><td>jokers : suite quelconque, un caractère</td></tr>
+      <tr><td><code>"deux mots"</code></td><td>phrase exacte</td></tr>
+    </table>
+    <div class="actions"><button id="help-close" class="primary">Fermer</button></div>
+  </dialog>
+
+  <!-- Boîtes génériques : confirmation, saisie d'un nom, message -->
+  <dialog id="ask-dialog">
+    <form id="ask-form" method="dialog">
+      <p id="ask-message"></p>
+      <input id="ask-input" hidden spellcheck="false" maxlength="256">
+      <div class="actions">
+        <button type="button" id="ask-cancel">Annuler</button>
+        <button type="submit" id="ask-ok" class="primary">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Demande de code 2FA pour la reconnexion -->
+  <dialog id="adopt-dialog">
+    <form id="adopt-form" method="dialog" autocomplete="off">
+      <p>Le serveur refuse le mot de passe de ce coffre : il a sans doute été changé sur un autre appareil.
+        Entrez le nouveau mot de passe maître.</p>
+      <input name="password" type="password" required>
+      <p class="error" id="adopt-error"></p>
+      <div class="actions">
+        <button type="submit" class="primary">Valider</button>
+        <button type="button" id="adopt-cancel">Plus tard</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="totp-dialog">
+    <form id="totp-form" method="dialog">
+      <p>Le serveur demande votre code 2FA pour reconnecter cet appareil.</p>
+      <input name="code" inputmode="numeric" autocomplete="one-time-code" required>
+      <p class="error" id="totp-error"></p>
+      <div class="actions">
+        <button type="submit" class="primary">Valider</button>
+        <button type="button" id="totp-cancel">Annuler</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
