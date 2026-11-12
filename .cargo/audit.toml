@@ -1,0 +1,15 @@
+# cargo audit lit Cargo.lock en entier, y compris des crates qui ne sont pas
+# compilées. cargo deny (deny.toml), qui suit le vrai graphe, reste la référence.
+[advisories]
+ignore = [
+    # 2026-11-12 : rsa 0.9 et crypto-bigint 0.5 figurent dans Cargo.lock (dépendances
+    # optionnelles de ssh-key 0.6) mais ne sont pas compilées : vérifié avec
+    # `cargo tree --workspace --target all -i rsa` (vide).
+    "RUSTSEC-2023-0071",
+    "RUSTSEC-2026-0387",
+    # Crates non maintenues, mêmes justifications que deny.toml.
+    "RUSTSEC-2024-0370",
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
+]

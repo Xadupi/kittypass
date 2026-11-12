@@ -13,5 +13,6 @@ if [ -n "${KP_TARGET:-}" ]; then
 else
   cargo build --release -p kittypass-proxy
   triple=$(rustc -vV | sed -n 's/^host: //p')
-  cp ../target/release/kittypass-proxy "binaries/kittypass-proxy-$triple"
+  ext=""; case "$triple" in *windows*) ext=".exe";; esac
+  cp "../target/release/kittypass-proxy$ext" "binaries/kittypass-proxy-$triple$ext"
 fi

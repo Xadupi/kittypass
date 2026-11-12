@@ -1,0 +1,11 @@
+{
+  "build": {
+    "beforeBuildCommand": "bash desktop/scripts/build-proxy.sh"
+  },
+  "bundle": {
+    "externalBin": ["binaries/kittypass-proxy"],
+    "windows": {
+      "webviewInstallMode": { "type": "offlineInstaller", "silent": true }
+    }
+  }
+}
