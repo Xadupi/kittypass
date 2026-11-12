@@ -13,3 +13,5 @@ target/
 *.db-shm
 *.db-wal
 secret.key
+/deploy/linux/kittypass-linux.sh
+/deploy/windows/kittypass-server-windows.zip

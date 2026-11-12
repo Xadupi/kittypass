@@ -55,6 +55,9 @@ jobs:
           # (glibc 2.35) pour fonctionner sur un maximum de distributions.
           - os: ubuntu-22.04
             bundles: appimage
+          # macOS (Apple Silicon) : .dmg non signé (clic droit → Ouvrir).
+          - os: macos-14
+            bundles: dmg
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +67,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - run: cargo install tauri-cli --version "^2" --locked
-      - run: cargo tauri build --bundles ${{ matrix.bundles }} ${{ runner.os == 'Linux' && '--config tauri.linux.json' || '' }}
+      - run: cargo tauri build --bundles ${{ matrix.bundles }} ${{ runner.os == 'Linux' && '--config tauri.linux.json' || runner.os == 'macOS' && '--config tauri.macos.json' || '' }}
         working-directory: desktop
       - uses: actions/upload-artifact@v4
         with:
@@ -73,6 +76,7 @@ jobs:
             target/release/bundle/nsis/*.exe
             target/release/bundle/msi/*.msi
             target/release/bundle/appimage/*.AppImage
+            target/release/bundle/dmg/*.dmg
 
   debian:
     needs: tests
@@ -93,3 +97,149 @@ jobs:
         with:
           name: kittypass-debian
           path: target/release/bundle/deb/*.deb
+
+  # iOS (expérimental) : .ipa NON signé, à installer avec Sideloadly ou
+  # AltStore et un identifiant Apple (à réinstaller tous les 7 jours).
+  ios:
+    needs: tests
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - run: cargo install tauri-cli --version "^2" --locked
+      - name: Projet Xcode
+        working-directory: desktop
+        run: cargo tauri ios init --ci
+      - name: Compilation sans signature
+        working-directory: desktop
+        run: |
+          proj=$(ls -d gen/apple/*.xcodeproj | head -n1)
+          scheme=$(xcodebuild -list -project "$proj" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')
+          echo "projet $proj, schéma $scheme"
+          xcodebuild -project "$proj" -scheme "$scheme" -configuration release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          app=$(find build-ios/Build/Products -name '*.app' -maxdepth 2 | head -n1)
+          mkdir -p ipa/Payload && cp -R "$app" ipa/Payload/
+          (cd ipa && zip -qr ../KittyPass-unsigned.ipa Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kittypass-ios
+          path: desktop/KittyPass-unsigned.ipa
+
+  # Image Docker du serveur : construite à chaque push, publiée sur
+  # ghcr.io/xadupi/kittypass-server pour les tags vX.Y.Z (et « latest »).
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/xadupi/kittypass-server
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - name: Image de test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: kittypass-test
+          cache-from: type=gha
+      - name: Essai de l'image
+        run: |
+          docker run -d --name kp -p 8080:8080 kittypass-test
+          for i in $(seq 30); do curl -fs http://127.0.0.1:8080/health && break; sleep 1; done
+          curl -fs http://127.0.0.1:8080/health
+          docker exec kp kittypass-server invite --admin | grep -q .
+          for i in $(seq 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' kp)" = healthy ] && break; sleep 2; done
+          docker inspect -f '{{.State.Health.Status}}' kp | grep -qx healthy
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  server-linux:
+    needs: tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: bash deploy/linux/make-installer.sh
+      - name: Installation
+        run: sudo PROXY_IP=127.0.0.1 bash deploy/linux/kittypass-linux.sh < /dev/null
+      - name: Vérifications
+        run: |
+          systemctl is-active kittypass
+          curl -fs http://127.0.0.1:8080/health
+          sudo test -f /etc/kittypass.env
+      - name: Mise à jour puis désinstallation
+        run: |
+          sudo bash deploy/linux/kittypass-linux.sh --update < /dev/null
+          systemctl is-active kittypass
+          for i in $(seq 20); do curl -fs http://127.0.0.1:8080/health && break; sleep 1; done
+          curl -fs http://127.0.0.1:8080/health
+          sudo bash deploy/linux/kittypass-linux.sh --uninstall < /dev/null
+          ! systemctl is-active kittypass
+          sudo test -d /var/lib/kittypass
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kittypass-linux.sh
+          path: deploy/linux/kittypass-linux.sh
+
+  server-windows:
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release -p kittypass-server
+      - name: Paquet
+        shell: pwsh
+        run: |
+          $d = "KittyPass-Server"; New-Item -ItemType Directory $d | Out-Null
+          Copy-Item target/release/kittypass-server.exe, deploy/windows/install.ps1, deploy/windows/Installer.cmd $d
+          $h = (Get-FileHash "$d/kittypass-server.exe" -Algorithm SHA256).Hash.ToLower()
+          Set-Content "$d/kittypass-server.exe.sha256" "$h  kittypass-server.exe"
+          Compress-Archive $d kittypass-server-windows.zip
+      - name: Installation et vérifications
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File KittyPass-Server/install.ps1 -Port 8080
+          if ($LASTEXITCODE) { exit 1 }
+          Get-ScheduledTask -TaskName "KittyPass Server" | Out-Null
+          Get-NetFirewallRule -DisplayName "KittyPass Server" | Out-Null
+          Invoke-WebRequest http://127.0.0.1:8080/health -UseBasicParsing | Out-Null
+      - name: Désinstallation
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File KittyPass-Server/install.ps1 -Uninstall
+          if ($LASTEXITCODE) { exit 1 }
+          if (Get-ScheduledTask -TaskName "KittyPass Server" -ErrorAction SilentlyContinue) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kittypass-server-windows.zip
+          path: kittypass-server-windows.zip

@@ -1,0 +1,9 @@
+# Le contexte de construction ne garde que ce que le Dockerfile copie.
+*
+!Cargo.toml
+!Cargo.lock
+!core/
+!server/
+!vendor/
+core/fuzz/
+**/target/

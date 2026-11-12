@@ -359,6 +359,9 @@ fn kdbx_copy_keeps_structure_and_skips_recycle_bin() {
     let id = src.add_in(&g, &data).unwrap();
     src.add_attachment(&id, "id_ed25519", b"KEY").unwrap();
     src.set_excluded_from_reports(&id, true).unwrap();
+    let vide = src.add_group(&src.root_id(), "Vide").unwrap();
+    src.add_group(&vide, "Sous-vide").unwrap();
+    src.add_group(&g, "Archives").unwrap();
     let gone = src.add(&EntryData { title: "À la corbeille".into(), ..Default::default() }).unwrap();
     src.delete(&gone).unwrap();
 
@@ -371,6 +374,9 @@ fn kdbx_copy_keeps_structure_and_skips_recycle_bin() {
     assert!(custom(&d, "Clé").unwrap().protected);
     assert_eq!(v.attachment(&new_id, "id_ed25519").unwrap().as_slice(), b"KEY");
     assert!(v.excluded_from_reports(&new_id).unwrap());
+    // Les groupes vides sont recréés.
+    assert!(child(child(&g, "Vide"), "Sous-vide").children.is_empty());
+    child(child(&g, "Travail"), "Archives");
 }
 
 #[test]

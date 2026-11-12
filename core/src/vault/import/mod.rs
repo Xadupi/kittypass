@@ -61,6 +61,8 @@ pub struct ImportedEntry {
 #[derive(Default)]
 pub struct Imported {
     pub entries: Vec<ImportedEntry>,
+    /// Groupes sans entrée ni sous-groupe, à recréer quand même.
+    pub empty_groups: Vec<Vec<String>>,
     pub warnings: Vec<String>,
 }
 
@@ -257,35 +259,44 @@ impl Vault {
         Ok(report)
     }
 
+    /// Groupe d'un chemin importé, créé au besoin (noms nettoyés,
+    /// profondeur bornée).
+    fn import_path(&mut self, root: &str, groups: &mut HashMap<Vec<String>, String>, raw: &[String]) -> Result<String> {
+        let mut path: Vec<String> = raw.iter().map(|p| clean_name(p, MAX_NAME_BYTES, "Sans nom")).collect();
+        if path.len() > MAX_IMPORT_DEPTH {
+            let tail = path.split_off(MAX_IMPORT_DEPTH - 1).join(" / ");
+            path.push(clean_name(&tail, MAX_NAME_BYTES, "Sans nom"));
+        }
+        let mut gid = root.to_owned();
+        for i in 0..path.len() {
+            let key = path[..=i].to_vec();
+            gid = match groups.get(&key) {
+                Some(g) => g.clone(),
+                None => {
+                    let g = self.add_group(&gid, &path[i])?;
+                    groups.insert(key, g.clone());
+                    g
+                }
+            };
+        }
+        Ok(gid)
+    }
+
     fn import_into(&mut self, parent_id: &str, name: &str, imported: Imported) -> Result<ImportReport> {
         let root = self.add_group(parent_id, &clean_name(name, MAX_NAME_BYTES, "Import"))?;
         let mut warnings = imported.warnings;
         let mut groups: HashMap<Vec<String>, String> = HashMap::new();
         let (mut done, mut skipped) = (0, 0);
+        for p in &imported.empty_groups {
+            self.import_path(&root, &mut groups, p)?;
+        }
         for mut e in imported.entries {
             if let Err(why) = clean_entry(&mut e, &mut warnings) {
                 warnings.push(why);
                 skipped += 1;
                 continue;
             }
-            // Groupes : créés au besoin, noms nettoyés, profondeur bornée.
-            let mut path: Vec<String> = e.path.iter().map(|p| clean_name(p, MAX_NAME_BYTES, "Sans nom")).collect();
-            if path.len() > MAX_IMPORT_DEPTH {
-                let tail = path.split_off(MAX_IMPORT_DEPTH - 1).join(" / ");
-                path.push(clean_name(&tail, MAX_NAME_BYTES, "Sans nom"));
-            }
-            let mut gid = root.clone();
-            for i in 0..path.len() {
-                let key = path[..=i].to_vec();
-                gid = match groups.get(&key) {
-                    Some(g) => g.clone(),
-                    None => {
-                        let g = self.add_group(&gid, &path[i])?;
-                        groups.insert(key, g.clone());
-                        g
-                    }
-                };
-            }
+            let gid = self.import_path(&root, &mut groups, &e.path)?;
             let label = format!("« {} »", truncate(&e.data.title, 80));
             let id = match self.add_in(&gid, &e.data) {
                 Ok(id) => id,

@@ -1280,6 +1280,7 @@ dependencies = [
  "thiserror",
  "url",
  "uuid",
+ "windows-sys",
  "zeroize",
  "zip",
  "zxcvbn",

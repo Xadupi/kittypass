@@ -141,8 +141,11 @@ fn raise(handle: &AppHandle) {
     }
 }
 
-/// Raccourci global pressé : KittyPass s'affiche et propose les entrées.
+/// Raccourci global pressé : la fenêtre rapide propose les entrées.
 fn on_global(handle: &AppHandle, window: Option<String>) {
+    #[cfg(desktop)]
+    crate::quick::show(handle);
+    #[cfg(mobile)]
     raise(handle);
     let _ = handle.emit("autotype_global", serde_json::json!({ "window": window }));
 }
@@ -253,6 +256,7 @@ pub async fn autotype_matches(app: State<'_, Arc<App>>, window: String) -> R<Vec
 #[tauri::command]
 pub async fn autotype_entry(
     handle: AppHandle,
+    caller: tauri::WebviewWindow,
     app: State<'_, Arc<App>>,
     state: State<'_, AutoTypeState>,
     id: String,
@@ -264,9 +268,11 @@ pub async fn autotype_entry(
     let cfg = app.autotype_config();
     let method = effective(cfg.method).ok_or(TypeError::Unavailable)?;
     let typed = app.autotype_prepare(&id, window.as_deref(), None).await?;
-    let main = handle.get_webview_window("main").ok_or(TypeError::Unavailable)?;
+    // La fenêtre qui a lancé la saisie s'efface : la fenêtre rapide se
+    // cache, la principale se réduit.
+    let main = caller;
     #[cfg(desktop)]
-    let _ = main.minimize();
+    let _ = if main.label() == crate::quick::LABEL { main.hide() } else { main.minimize() };
     #[cfg(mobile)]
     let _ = &main;
     tokio::time::sleep(Duration::from_millis(cfg.start_delay_ms.into())).await;
@@ -281,6 +287,11 @@ pub async fn autotype_entry(
         type_with(method, &state.dir, typed, delay, focused).await
     };
     if let Err(e) = result {
+        #[cfg(desktop)]
+        if main.label() == crate::quick::LABEL {
+            crate::quick::show(&handle);
+            return Err(e.into());
+        }
         raise(&handle);
         return Err(e.into());
     }

@@ -1,13 +1,13 @@
 [package]
 name = "kittypass-proxy"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 license.workspace = true
 publish = false
 description = "Relais de messagerie native entre l'extension KeePassXC-Browser et KittyPass"
 
 [dependencies]
-kittypass-core = { version = "0.1.0", path = "../core" }
+kittypass-core = { version = "1.0.0", path = "../core" }
 
 [dev-dependencies]
 kittypass-app = { path = "../app" }

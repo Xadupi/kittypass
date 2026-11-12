@@ -11,6 +11,8 @@ mod biometric;
 mod raise;
 mod browser;
 mod favicon;
+#[cfg(desktop)]
+mod quick;
 mod secrets;
 mod ssh;
 
@@ -501,12 +503,20 @@ pub fn run() {
             tauri::async_runtime::spawn(browser::restore(tauri_app.handle().clone()));
             tauri_app.manage(autotype::AutoTypeState::new(dir_for_autotype));
             autotype::restore(tauri_app.handle());
+            #[cfg(desktop)]
+            quick::create(tauri_app.handle());
             #[cfg(target_os = "android")]
             {
                 let h = tauri_app.handle().clone();
                 std::thread::spawn(move || android_secure::register_autofill(&h));
             }
             Ok(())
+        })
+        .on_window_event(|w, ev| {
+            #[cfg(desktop)]
+            quick::on_window_event(w, ev);
+            #[cfg(mobile)]
+            let _ = (w, ev);
         })
         .invoke_handler(tauri::generate_handler![
             status, setup, unlock, lock, touch, groups, tags, add_group, rename_group, move_group, delete_group,
@@ -523,9 +533,13 @@ pub fn run() {
             account::revoke_other_sessions, account::change_master_password, account::adopt_master_password,
             account::setup_2fa, account::enable_2fa, account::disable_2fa, account::vault_versions,
             account::restore_version, account::save_version, account::create_invite, account::users,
-            account::set_user_disabled, favicon::favicon, favicon::forget_favicon, clone_entry, expire_entry, set_entry_tags, open_entry_url,
+            account::set_user_disabled, favicon::favicon, favicon::forget_favicon, favicon::favicons_fetch_all, clone_entry, expire_entry, set_entry_tags, open_entry_url,
             biometric::biometric_status, biometric::biometric_enable, biometric::biometric_disable, biometric::biometric_unlock,
-            autofill_status, autofill_settings
+            autofill_status, autofill_settings,
+            #[cfg(desktop)]
+            quick::quick_hide,
+            #[cfg(desktop)]
+            quick::quick_resize
         ])
         .build(tauri::generate_context!())
         .expect("erreur au lancement de KittyPass")

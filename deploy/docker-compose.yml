@@ -2,6 +2,7 @@
 # Remplacer coffre.example.org par ton domaine dans Caddyfile.
 services:
   kittypass:
+    image: ghcr.io/xadupi/kittypass-server:latest
     build: ..
     restart: unless-stopped
     environment:

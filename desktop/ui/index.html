@@ -127,7 +127,7 @@
       <button class="tool" id="btn-copy-totp" title="Copier le code 2FA (Ctrl+T)" disabled><svg><use href="#i-clock"/></svg><span>2FA</span></button>
       <button class="tool" id="btn-autotype" title="Saisie automatique dans la fenêtre précédente (Ctrl+Maj+V)" disabled><svg><use href="#i-keyboard"/></svg><span>Saisie auto</span></button>
       <span class="sep"></span>
-      <button class="tool" id="btn-generator" title="Générateur de mots de passe (Ctrl+G)"><svg><use href="#i-dice"/></svg><span>Générateur</span></button>
+      <button class="tool" id="btn-generator" title="Générateur de mots de passe (Ctrl+G)"><svg><use href="#i-dice"/></svg><span>Générer</span></button>
       <button class="tool" id="btn-reports" title="Rapports de sécurité (Ctrl+R)"><svg><use href="#i-shield"/></svg><span>Rapports</span></button>
       <button class="tool" id="btn-sync" title="Synchroniser avec le serveur"><svg><use href="#i-sync"/></svg><span>Synchroniser</span></button>
       <button class="tool" id="btn-settings" title="Paramètres (Ctrl+,)"><svg><use href="#i-gear"/></svg><span>Paramètres</span></button>
@@ -192,6 +192,10 @@
                   <button role="tab" class="tab" data-pvtab="general" aria-selected="true">Général</button>
                   <button role="tab" class="tab" data-pvtab="advanced" aria-selected="false">Avancé</button>
                 </div>
+                <span class="pv-actions only-phone">
+                  <button id="pv-edit" class="mini" title="Modifier" aria-label="Modifier l'entrée"><svg><use href="#i-edit"/></svg></button>
+                  <button id="pv-delete" class="mini" title="Supprimer" aria-label="Supprimer l'entrée"><svg><use href="#i-delete"/></svg></button>
+                </span>
                 <button id="btn-restore-entry" hidden><svg><use href="#i-restore"/></svg> Restaurer</button>
               </div>
               <div data-pvpanel="general" class="pv-panel">
@@ -406,6 +410,14 @@
       </main>
     </div>
     <footer class="status"><span id="status" role="status"></span><span id="status-right" class="muted"></span></footer>
+    <!-- Téléphone : navigation principale en bas de l'écran -->
+    <nav class="bottom-nav" aria-label="Navigation">
+      <button type="button" data-nav="btn-groups"><svg><use href="#i-folder"/></svg><span>Groupes</span></button>
+      <button type="button" data-nav="btn-generator"><svg><use href="#i-dice"/></svg><span>Générer</span></button>
+      <button type="button" data-nav="btn-new" class="nav-main" aria-label="Nouvelle entrée"><svg><use href="#i-add"/></svg></button>
+      <button type="button" data-nav="btn-reports"><svg><use href="#i-shield"/></svg><span>Rapports</span></button>
+      <button type="button" data-nav="btn-settings"><svg><use href="#i-gear"/></svg><span>Réglages</span></button>
+    </nav>
   </section>
 
   <!-- Générateur -->
@@ -550,7 +562,13 @@
         <p class="accent-name" id="accent-name"></p>
         <h3>Icônes des sites</h3>
         <label class="inline"><input type="checkbox" id="favicons-toggle"> Afficher l'icône du site de chaque entrée</label>
-        <p class="hint">Seul le nom du site est demandé (https://site/favicon.ico), jamais l'adresse complète ni vos identifiants. Les adresses locales (192.168…, .local) ne sont jamais contactées.</p>
+        <p class="hint">Seul le nom du site est demandé (https://site/favicon.ico), jamais l'adresse complète ni vos identifiants. Les adresses locales (192.168…, .local) ne sont jamais contactées.
+          Si le site n'a pas de favicon.ico, KittyPass lit les icônes déclarées par sa page d'accueil, puis essaie le domaine parent.</p>
+        <div class="row favicon-bulk">
+          <button type="button" id="favicons-all">Télécharger toutes les icônes</button>
+          <label class="inline"><input type="checkbox" id="favicons-retry"> Réessayer les sites sans icône</label>
+        </div>
+        <p class="muted" id="favicons-progress" role="status"></p>
       <div class="actions"><button type="button" class="vd-close primary">Fermer</button></div>
     </form>
 

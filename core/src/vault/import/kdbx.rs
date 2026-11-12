@@ -16,7 +16,14 @@ pub fn from_vault(source: &Vault) -> Result<Imported> {
 }
 
 fn walk(source: &Vault, node: &GroupNode, path: &mut Vec<String>, out: &mut Imported) -> Result<()> {
-    for s in source.entries_in(&node.id)? {
+    let entries = source.entries_in(&node.id)?;
+    if entries.is_empty() && !path.is_empty() && node.children.iter().all(|c| c.is_recycle_bin) {
+        if out.empty_groups.len() >= super::MAX_IMPORT_ENTRIES {
+            return Err(crate::Error::InvalidArgument("trop de groupes à importer"));
+        }
+        out.empty_groups.push(path.clone());
+    }
+    for s in entries {
         let data = source.get(&s.id)?;
         let mut attachments = Vec::new();
         for a in source.attachments(&s.id)? {

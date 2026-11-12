@@ -1,0 +1,24 @@
+# KittyPass seul, derrière un reverse proxy existant (Nginx Proxy Manager,
+# Traefik, Caddy…) qui fait le HTTPS. Le serveur écoute sur le port 8080.
+#
+#   docker compose -f docker-compose.simple.yml up -d
+#   docker compose -f docker-compose.simple.yml exec kittypass kittypass-server invite --admin
+services:
+  kittypass:
+    image: ghcr.io/xadupi/kittypass-server:latest
+    build: ..
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      # Adresse du reverse proxy, pour connaître l'IP réelle des clients
+      # (limitation des tentatives de connexion).
+      KITTYPASS_TRUSTED_PROXIES: ""
+      KITTYPASS_REQUIRE_2FA: "false"
+    volumes:
+      - kittypass-data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  kittypass-data:

@@ -8,6 +8,35 @@
 
 const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args);
 const listen = (ev, cb) => window.__TAURI__.event.listen(ev, cb);
+const emit = (ev, payload) => window.__TAURI__.event.emit(ev, payload);
+/** Fenêtre « accès rapide » (bureau) : seulement les demandes du navigateur
+ *  et le choix de la saisie automatique. La fenêtre principale lui laisse ces
+ *  demandes ; sous Android, sans fenêtre rapide, elle les traite elle-même. */
+const QUICK = window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "quick";
+const PROMPTS_HERE = QUICK || /Android/i.test(navigator.userAgent);
+if (QUICK) document.body.classList.add("quick");
+/** Fenêtre rapide : sa hauteur suit ce qu'elle montre (boîte ouverte ou
+ *  déverrouillage). */
+function fitQuick() {
+  if (!QUICK) return;
+  requestAnimationFrame(() => {
+    const dlg = document.querySelector("dialog[open]");
+    const box = dlg ?? (!$("view-unlock").hidden ? $("view-unlock") : null);
+    if (!box) return;
+    const prev = box.style.maxHeight;
+    box.style.maxHeight = "none";
+    const h = Math.ceil(box.scrollHeight);
+    box.style.maxHeight = prev;
+    invoke("quick_resize", { height: h }).catch(() => {});
+  });
+}
+if (QUICK) {
+  new MutationObserver(fitQuick).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open", "hidden"], childList: true });
+}
+/** Fenêtre rapide sans rien à montrer : elle se cache. */
+function quickIdle() {
+  if (QUICK && !$("view-main").hidden && !document.querySelector("dialog[open]")) invoke("quick_hide").catch(() => {});
+}
 const $ = (id) => document.getElementById(id);
 const MASK = "••••••••••";
 
@@ -59,8 +88,14 @@ function errorText(e) {
   return String(e);
 }
 
+let statusTimer = 0;
 function setStatus(text) {
   $("status").textContent = text;
+  // Téléphone : le message est une bulle au-dessus de la barre du bas, effacée après quelques secondes.
+  clearTimeout(statusTimer);
+  if (text && window.matchMedia("(max-width: 640px)").matches) {
+    statusTimer = setTimeout(() => { if ($("status").textContent === text) $("status").textContent = ""; }, 4000);
+  }
 }
 
 async function busy(button, fn) {
@@ -156,8 +191,10 @@ async function refresh() {
   }
   show("main");
   $("status-right").textContent = `${s.username} — ${s.server_url}`;
-  await loadGroups();
-  await loadEntries();
+  if (!QUICK) {
+    await loadGroups();
+    await loadEntries();
+  }
   // Raccourci global pressé pendant que le coffre était verrouillé.
   if (atPending) {
     const w = atPending.window;
@@ -272,6 +309,8 @@ $("unlock-form").addEventListener("submit", async (ev) => {
     await busy(f.querySelector("button[type=submit]"), () => invoke("unlock_with_key_file", args));
     f.reset();
     await refresh();
+    emit("unlocked").catch(() => {});
+    if (QUICK) return quickIdle();
     // Après la synchro, dont le message remplacerait celui de l'agent SSH.
     syncNow(false).finally(reportSshUnlock);
   } catch (e) {
@@ -310,6 +349,13 @@ async function lockNow() {
   await refresh();
 }
 $("btn-lock").addEventListener("click", lockNow);
+// Déverrouillé dans l'autre fenêtre.
+listen("unlocked", async () => {
+  if (!$("view-main").hidden) return;
+  await refresh();
+  if (QUICK) quickIdle();
+  else syncNow(false).finally(reportSshUnlock);
+});
 listen("locked", () => {
   wipeScreen();
   refresh();
@@ -593,6 +639,27 @@ $("favicons-toggle").addEventListener("change", (ev) => {
     localStorage.setItem(FAVICON_KEY, ev.target.checked ? "on" : "off");
   } catch (_) {}
   renderEntries();
+});
+
+$("favicons-all").addEventListener("click", (ev) =>
+  busy(ev.currentTarget, async () => {
+    const out = $("favicons-progress");
+    try {
+      const { items } = await invoke("entries", { query: "", group: null });
+      const urls = items.map((it) => it.url).filter(Boolean);
+      out.textContent = `Recherche des icônes de ${urls.length} entrées…`;
+      const r = await invoke("favicons_fetch_all", { urls, retry: $("favicons-retry").checked });
+      out.textContent = `${r.found} site(s) sur ${r.total} ont une icône.`;
+      faviconCache.clear();
+      if (faviconsEnabled()) renderEntries();
+    } catch (e) {
+      out.textContent = `Impossible : ${errorText(e)}`;
+    }
+  }),
+);
+listen("favicon_progress", (ev) => {
+  const p = ev.payload;
+  if ($("favicons-all").disabled) $("favicons-progress").textContent = `${p.done} / ${p.total} sites… (${p.found} icônes trouvées)`;
 });
 
 function renderEntries() {
@@ -1963,7 +2030,8 @@ function showShortcutHints() {
     b.dataset.label ??= b.title.replace(/ \([^)]*\)$/, "");
     b.title = shortcuts[action] ? `${b.dataset.label} (${comboLabel(shortcuts[action])})` : b.dataset.label;
   }
-  $("search").placeholder = shortcuts.search ? `Rechercher… (${comboLabel(shortcuts.search)})` : "Rechercher…";
+  const touch = /Android/i.test(navigator.userAgent) || window.matchMedia("(max-width: 640px)").matches;
+  $("search").placeholder = shortcuts.search && !touch ? `Rechercher… (${comboLabel(shortcuts.search)})` : "Rechercher…";
 }
 showShortcutHints();
 
@@ -2271,12 +2339,18 @@ $("at-form").addEventListener("submit", (ev) => {
 });
 $("at-cancel").addEventListener("click", () => $("at-dialog").close());
 $("at-dialog").addEventListener("close", () => {
+  setTimeout(quickIdle, 0);
   atPick.gen++;
   atPick.items = [];
   $("at-list").replaceChildren();
 });
 
-listen("autotype_global", (ev) => openAutotypePicker(typeof ev.payload?.window === "string" ? ev.payload.window : null));
+listen("autotype_global", async (ev) => {
+  if (!PROMPTS_HERE) return;
+  // La fenêtre rapide, cachée, peut avoir manqué un déverrouillage.
+  if (QUICK) await refresh().catch(() => {});
+  openAutotypePicker(typeof ev.payload?.window === "string" ? ev.payload.window : null);
+});
 listen("autotype_error", (ev) => {
   const msg = String(ev.payload?.message ?? "erreur");
   setStatus(msg);
@@ -3138,12 +3212,14 @@ async function handleSyncError(e, verbose) {
 
 $("btn-sync").addEventListener("click", () => syncNow(true));
 listen("synced", (ev) => {
+  if (QUICK) return;
   if (ev.payload.pulled && ed.hidden) {
     loadGroups().then(loadEntries);
   }
   setStatus(`Synchronisé automatiquement (version ${ev.payload.version}).`);
 });
-listen("sync_error", (ev) => handleSyncError(ev.payload, false));
+// Seule la fenêtre principale gère la synchro (sinon deux demandes de reconnexion).
+listen("sync_error", (ev) => !QUICK && handleSyncError(ev.payload, false));
 
 refresh().catch((e) => setStatus(errorText(e)));
 
@@ -3287,6 +3363,7 @@ function bpAnswer(answer) {
   if ($("bp-dialog").open) $("bp-dialog").close();
   invoke("browser_answer", { id: cur.id, answer }).catch(() => {});
   nextBrowserPrompt();
+  quickIdle();
 }
 
 /** Verrouillage : toute demande en cours ou en attente est refusée. */
@@ -3406,6 +3483,8 @@ $("bp-dialog").addEventListener("cancel", (ev) => {
 });
 
 listen("browser_prompt", (ev) => {
+  if (!PROMPTS_HERE) return;
+  if (QUICK && $("view-main").hidden) refresh().catch(() => {});
   bp.queue.push(ev.payload);
   nextBrowserPrompt();
 });
@@ -3418,10 +3497,19 @@ listen("browser_prompt_closed", (ev) => {
     $("bp-name").value = "";
     if ($("bp-dialog").open) $("bp-dialog").close();
     nextBrowserPrompt();
+    quickIdle();
   }
 });
+// Fenêtre rapide fermée par l'utilisateur : tout ce qu'elle montrait est refusé.
+listen("quick_closed", () => {
+  if (!QUICK) return;
+  dropBrowserPrompts();
+  atPending = null;
+  if ($("at-dialog").open) $("at-dialog").close();
+});
 listen("browser_unlock_requested", () => {
-  refresh();
+  if (!PROMPTS_HERE) return;
+  refresh().then(quickIdle, () => {});
   setStatus("Le navigateur demande le déverrouillage du coffre.");
 });
 listen("browser_error", (ev) => setStatus(`Intégration navigateur : ${ev.payload?.message ?? ""}`));
@@ -3595,6 +3683,7 @@ $("unlock-bio").addEventListener("click", async () => {
     $("unlock-bio-msg").textContent = "";
     $("unlock-form").reset();
     await refresh();
+    emit("unlocked").catch(() => {});
     syncNow(false).finally(reportSshUnlock);
   } catch (e) {
     $("unlock-bio-msg").textContent = "";
@@ -3701,3 +3790,18 @@ if (/Android/i.test(navigator.userAgent)) {
   const dev = document.querySelector('input[name="device"]');
   if (dev && dev.value === "Ordinateur") dev.value = "Téléphone";
 }
+
+// macOS et iOS : effet « Liquid Glass » (style.css, body.apple).
+if (/Macintosh|iPhone|iPad|iPod/.test(navigator.userAgent)) document.body.classList.add("apple");
+
+// Barre de navigation du bas (téléphone) : relaie vers les boutons de la barre d'outils.
+for (const b of document.querySelectorAll(".bottom-nav [data-nav]")) {
+  b.addEventListener("click", () => $(b.dataset.nav).click());
+}
+$("pv-edit").addEventListener("click", () => $("btn-edit").click());
+$("pv-delete").addEventListener("click", () => $("btn-delete").click());
+
+// Hauteur de la barre d'outils (bureau) : le contenu défile dessous.
+new ResizeObserver(([e]) => {
+  document.documentElement.style.setProperty("--tb-h", `${Math.round(e.borderBoxSize?.[0]?.blockSize ?? e.target.offsetHeight)}px`);
+}).observe(document.querySelector(".toolbar"));

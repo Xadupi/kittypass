@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later"
 [profile.release]
 lto = true
 codegen-units = 1
+strip = true
 
 # Argon2 est inutilisable sans optimisation : on optimise les dépendances
 # même en mode debug et pour les tests.

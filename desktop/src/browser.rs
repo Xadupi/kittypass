@@ -54,23 +54,7 @@ impl DesktopPrompter {
 
     fn raise(&self) {
         #[cfg(desktop)]
-        if let Some(w) = self.handle.get_webview_window("main") {
-            let _ = w.unminimize();
-            let _ = w.show();
-            let _ = w.set_focus();
-            let _ = w.request_user_attention(Some(tauri::UserAttentionType::Critical));
-            // X11 : passer brièvement « au-dessus » force le premier plan.
-            let _ = w.set_always_on_top(true);
-            let w2 = w.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-                let _ = w2.set_always_on_top(false);
-            });
-        }
-        // KDE Wayland refuse le premier plan sans jeton d'activation : on
-        // demande à KWin lui-même d'activer la fenêtre.
-        #[cfg(target_os = "linux")]
-        tauri::async_runtime::spawn(crate::raise::kwin_activate());
+        crate::quick::show(&self.handle);
     }
 
     pub fn answer(&self, id: u64, answer: Option<Answer>) {
