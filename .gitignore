@@ -1,5 +1,7 @@
 target/
 *.kdbx
+# Graine de fuzzing (coffre de test, sans données réelles)
+!/core/fuzz/seeds/kdbx/*.kdbx
 /desktop/gen/schemas/
 /desktop/binaries/
 /deploy/proxmox/kittypass-proxmox.sh
