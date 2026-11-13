@@ -1,4 +1,4 @@
-# KittyPass : installe le serveur sur Windows (10, 11, Server 2019+), sans
+﻿# KittyPass : installe le serveur sur Windows (10, 11, Server 2019+), sans
 # Docker. Le serveur tourne en tâche planifiée au démarrage, sous le compte
 # restreint « Service local », et redémarre s'il s'arrête.
 #
@@ -100,7 +100,13 @@ if (-not $up) { Die "le serveur ne répond pas (voir l'Observateur d'événement
 Ok "serveur actif sur le port $Port"
 
 $env:KITTYPASS_DATA = $Data
+# Windows PowerShell 5 change le texte de stderr en erreur fatale sous
+# « Stop » : le message d'accompagnement de l'invitation est ignoré ici.
+$ErrorActionPreference = "Continue"
 $invite = & $Exe invite --admin 72 2>$null
+$code = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($code -ne 0 -or -not $invite) { Die "création de l'invitation impossible" }
 # Le fichier de la base, créé par l'administrateur, doit rester accessible au service.
 icacls $Data /grant:r "*S-1-5-19:(OI)(CI)M" /T | Out-Null
 

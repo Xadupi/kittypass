@@ -118,6 +118,14 @@ jobs:
           proj=$(ls -d gen/apple/*.xcodeproj | head -n1)
           scheme=$(xcodebuild -list -project "$proj" | awk '/Schemes:/{f=1;next} f&&NF{print $1; exit}')
           echo "projet $proj, schéma $scheme"
+          # La phase « Build Rust Code » de Xcode exige que « tauri ios build »
+          # tourne (lequel impose une signature) : la bibliothèque Rust est
+          # compilée ici et la phase remplacée par « true ».
+          cargo build --release --lib --target aarch64-apple-ios --features tauri/custom-protocol
+          mkdir -p gen/apple/Externals/arm64/release
+          cp ../target/aarch64-apple-ios/release/libkittypass_desktop_lib.a gen/apple/Externals/arm64/release/libapp.a
+          perl -i -pe 's/shellScript = ".*xcode-script.*";/shellScript = "true";/' "$proj/project.pbxproj"
+          grep -q xcode-script "$proj/project.pbxproj" && { echo "phase Rust non remplacée"; exit 1; }
           xcodebuild -project "$proj" -scheme "$scheme" -configuration release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-ios \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
