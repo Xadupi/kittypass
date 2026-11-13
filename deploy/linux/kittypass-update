@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# KittyPass : met à jour le serveur depuis la dernière Release GitHub.
+# Installé dans /usr/local/sbin par kittypass-linux.sh et kittypass-proxmox.sh.
+#
+#   kittypass-update              met à jour si une version plus récente existe
+#   kittypass-update --check      dit seulement s'il y a une mise à jour
+#   kittypass-update --auto on    vérifie chaque semaine (timer systemd)
+#   kittypass-update --auto off   arrête la vérification automatique
+#
+# Le fichier téléchargé est vérifié avec SHA256SUMS.txt de la même Release,
+# puis le binaire embarqué l'est à nouveau par son propre installateur.
+set -Eeuo pipefail
+export LC_ALL=C.UTF-8
+
+REPO=${KITTYPASS_REPO:-Xadupi/kittypass}
+BIN=/usr/local/bin/kittypass-server
+ASSET=kittypass-linux.sh
+
+C_OK=$'\e[32m'; C_ERR=$'\e[31m'; C_RST=$'\e[0m'
+[[ -t 1 ]] || { C_OK=; C_ERR=; C_RST=; }
+ok()  { printf '%s✔%s %s\n' "$C_OK" "$C_RST" "$*"; }
+die() { printf '%s✘ %s%s\n' "$C_ERR" "$*" "$C_RST" >&2; exit 1; }
+
+[[ $EUID -eq 0 ]] || die "à lancer en root"
+
+auto() {
+  local timer=/etc/systemd/system/kittypass-update.timer svc=/etc/systemd/system/kittypass-update.service
+  case "${1:-}" in
+    on)
+      cat > "$svc" <<'EOF'
+[Unit]
+Description=Mise à jour du serveur KittyPass
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kittypass-update
+EOF
+      cat > "$timer" <<'EOF'
+[Unit]
+Description=Mise à jour hebdomadaire du serveur KittyPass
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+      systemctl daemon-reload
+      systemctl enable --now kittypass-update.timer >/dev/null 2>&1
+      ok "mise à jour automatique activée (chaque semaine)" ;;
+    off)
+      systemctl disable --now kittypass-update.timer >/dev/null 2>&1 || true
+      rm -f -- "$timer" "$svc"
+      systemctl daemon-reload
+      ok "mise à jour automatique désactivée" ;;
+    *) die "utilisation : kittypass-update --auto on|off" ;;
+  esac
+}
+
+if [[ "${1:-}" == --auto ]]; then auto "${2:-}"; exit 0; fi
+[[ -z "${1:-}" || "${1:-}" == --check ]] || die "option inconnue : $1"
+[[ -x "$BIN" ]] || die "KittyPass n'est pas installé ici ($BIN absent)"
+command -v curl >/dev/null || die "curl est nécessaire"
+
+# Dernière version : la page « latest » redirige vers …/tag/vX.Y.Z.
+tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") || die "GitHub injoignable"
+tag=${tag##*/}
+[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "aucune Release trouvée"
+latest=${tag#v}
+current=$("$BIN" --version 2>/dev/null | awk '{print $2}')
+current=${current:-0.0.0}
+
+newer() { [[ "$1" != "$2" && "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" == "$1" ]]; }
+if ! newer "$latest" "$current"; then
+  ok "déjà à jour ($current)"
+  exit 0
+fi
+if [[ "${1:-}" == --check ]]; then
+  echo "mise à jour disponible : $current → $latest"
+  exit 0
+fi
+
+WORK=$(mktemp -d)
+trap 'rm -rf -- "${WORK:?}"' EXIT
+base="https://github.com/$REPO/releases/download/$tag"
+curl -fsSL -o "$WORK/$ASSET" "$base/$ASSET" || die "téléchargement de $ASSET impossible"
+curl -fsSL -o "$WORK/SHA256SUMS.txt" "$base/SHA256SUMS.txt" || die "téléchargement de SHA256SUMS.txt impossible"
+( cd "$WORK" && grep -E "^[0-9a-f]{64}  $ASSET\$" SHA256SUMS.txt | sha256sum -c --quiet ) || die "empreinte de $ASSET incorrecte"
+bash "$WORK/$ASSET" --update </dev/null
+ok "KittyPass $current → $latest"

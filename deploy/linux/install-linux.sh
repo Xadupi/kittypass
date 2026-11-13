@@ -14,6 +14,7 @@
 #   DOMAIN       sans PROXY_IP : domaine public, installe Caddy (apt ou dnf)
 #   PORT         port d'écoute (défaut 8080)
 #   REQUIRE_2FA  « true » pour imposer la 2FA à tous les comptes
+#   AUTO_UPDATE  « oui » : mise à jour chaque semaine depuis GitHub (kittypass-update)
 set -Eeuo pipefail
 export LC_ALL=C.UTF-8 LANG=C.UTF-8 LANGUAGE=
 
@@ -30,10 +31,11 @@ command -v systemctl >/dev/null || die "systemd est nécessaire"
 BIN=/usr/local/bin/kittypass-server
 DATA=/var/lib/kittypass
 UNIT=/etc/systemd/system/kittypass.service
+UPD=/usr/local/sbin/kittypass-update
 
 if [[ "${1:-}" == --uninstall ]]; then
-  systemctl disable --now kittypass 2>/dev/null || true
-  rm -f -- "$UNIT" "$BIN" /etc/kittypass.env
+  systemctl disable --now kittypass kittypass-update.timer 2>/dev/null || true
+  rm -f -- "$UNIT" "$BIN" /etc/kittypass.env "$UPD" /etc/systemd/system/kittypass-update.timer /etc/systemd/system/kittypass-update.service
   systemctl daemon-reload
   ok "service retiré. Données gardées dans $DATA (à supprimer à la main si voulu)."
   exit 0
@@ -52,6 +54,7 @@ ok "binaire du serveur vérifié ($(cat "$WORK/VERSION" 2>/dev/null || echo vers
 if [[ "${1:-}" == --update ]]; then
   [[ -f "$UNIT" ]] || die "KittyPass n'est pas installé ici"
   install -m 755 "$WORK/kittypass-server" "$BIN"
+  install -m 755 "$WORK/kittypass-update" "$UPD"
   systemctl restart kittypass
   ok "serveur mis à jour et redémarré"
   exit 0
@@ -69,6 +72,7 @@ ask PROXY_IP "IP de ton reverse proxy HTTPS existant (vide : aucun)" ""
 if [[ -n "$PROXY_IP" ]]; then DOMAIN=; else ask DOMAIN "Nom de domaine public, Caddy sera installé (vide : aucun)" ""; fi
 PORT=${PORT:-8080}
 REQUIRE_2FA=${REQUIRE_2FA:-false}
+ask AUTO_UPDATE "Mise à jour automatique chaque semaine depuis GitHub (oui/non)" "non"
 [[ -z "$DOMAIN" || "$DOMAIN" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] || die "domaine invalide"
 [[ -z "$PROXY_IP" || "$PROXY_IP" =~ ^[0-9a-fA-F.:/]+$ ]] || die "PROXY_IP invalide"
 [[ "$PORT" =~ ^[0-9]{2,5}$ ]] || die "PORT invalide"
@@ -78,6 +82,7 @@ REQUIRE_2FA=${REQUIRE_2FA:-false}
 if [[ -n "$PROXY_IP" ]]; then BIND=0.0.0.0:$PORT; PROXIES=$PROXY_IP
 elif [[ -n "$DOMAIN" ]]; then BIND=127.0.0.1:$PORT; PROXIES=127.0.0.1; else BIND=0.0.0.0:$PORT; PROXIES=; fi
 install -m 755 "$WORK/kittypass-server" "$BIN"
+install -m 755 "$WORK/kittypass-update" "$UPD"
 id kittypass >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin kittypass 2>/dev/null \
   || useradd --system --home-dir "$DATA" --shell /sbin/nologin kittypass
 install -d -m 700 -o kittypass -g kittypass "$DATA"
@@ -130,6 +135,8 @@ done
 [[ -n "$up" ]] || { journalctl -u kittypass -n 20 --no-pager; die "le service ne répond pas"; }
 ok "service kittypass actif (port $PORT)"
 
+if [[ "$AUTO_UPDATE" =~ ^(o|oui|y|yes|true)$ ]]; then "$UPD" --auto on; fi
+
 # --- HTTPS (Caddy) si un domaine est donné
 if [[ -n "$DOMAIN" ]]; then
   msg "installation de Caddy pour https://$DOMAIN …"
@@ -172,6 +179,6 @@ else
 fi
 echo "  Invitation ADMIN (72 h, une seule fois) : $INVITE"
 echo "  Sauvegarde : $DATA (kittypass.db, et secret.key À GARDER À PART)."
-echo "  Mise à jour : sudo bash <nouveau kittypass-linux.sh> --update"
+echo "  Mise à jour : sudo kittypass-update (automatique : sudo kittypass-update --auto on)"
 exit 0
 __KITTYPASS_PAYLOAD__

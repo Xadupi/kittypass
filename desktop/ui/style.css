@@ -749,3 +749,6 @@ body.apple .entries tbody tr[aria-selected=true] td:last-child { border-radius: 
 @media (prefers-reduced-transparency: reduce) {
   body.apple .bottom-nav { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* Notes de version dans Paramètres → Mises à jour */
+.upd-notes { white-space: pre-line; max-height: 12em; overflow: auto; }

@@ -180,6 +180,9 @@ const handlers = {
   biometric_disable: () => { db.bio = false; },
   biometric_unlock: () => { db.unlocked = true; },
   forget_favicon: () => null,
+  update_check: () => ({ current: "1.0.0", latest: "1.1.0", notes: "Nouveautés :\n- exemple", installable: true }),
+  update_install: () => null,
+  update_open_page: () => null,
   delete_entry: ({ id }) => { const e = entry(id); if (inBin(e.group)) db.entries = db.entries.filter((x) => x !== e); else { e.prev = e.group; e.group = "bin"; } },
   restore_entry: ({ id }) => { const e = entry(id); e.group = e.prev || "root"; },
   move_entry: ({ id, group }) => { entry(id).group = group; },
@@ -308,6 +311,7 @@ window.__TAURI__ = {
       return await h(args || {});
     },
   },
+  app: { getVersion: async () => "1.0.0" },
   event: { listen: async (ev, cb) => { (window.__listeners ||= {})[ev] = cb; return () => {}; } },
 };
 })();

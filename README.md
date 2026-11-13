@@ -47,8 +47,12 @@ macOS : l'application n'a pas de signature Apple. Si macOS dit qu'elle est
 Sur l'hôte Proxmox, en root :
 
 ```bash
-bash kittypass-proxmox.sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Xadupi/kittypass/master/deploy/proxmox/kittypass.sh)"
 ```
+
+Le script télécharge `kittypass-proxmox.sh` de la dernière Release, vérifie
+son empreinte (`SHA256SUMS.txt`), puis le lance. On peut aussi télécharger
+`kittypass-proxmox.sh` à la main et lancer `bash kittypass-proxmox.sh`.
 
 Le script crée un conteneur LXC Debian 13 et installe le serveur (avec Caddy
 pour le HTTPS, ou derrière un reverse proxy existant). Détails :
@@ -59,10 +63,15 @@ pour le HTTPS, ou derrière un reverse proxy existant). Détails :
 Sur une machine x86_64 avec systemd (Debian, Ubuntu, Fedora…), en root :
 
 ```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Xadupi/kittypass/master/deploy/linux/kittypass.sh)"
+```
+
+Ou avec le fichier de la Release :
+
+```bash
 bash kittypass-linux.sh                          # questions interactives
 PROXY_IP=192.168.1.10 bash kittypass-linux.sh    # derrière un reverse proxy
 DOMAIN=coffre.exemple.fr bash kittypass-linux.sh # HTTPS avec Caddy
-bash kittypass-linux.sh --update                 # mise à jour
 bash kittypass-linux.sh --uninstall              # retrait (données gardées)
 ```
 
@@ -95,6 +104,20 @@ docker exec kittypass kittypass-server invite --admin   # première invitation
 Le serveur parle HTTP : placez-le derrière un reverse proxy HTTPS.
 Fichiers prêts dans `deploy/` : `docker-compose.yml` (avec Caddy et HTTPS
 automatique) et `docker-compose.simple.yml` (derrière un proxy existant).
+
+## Mises à jour
+
+- **Application** (Windows, macOS, AppImage) : Paramètres → Mises à jour,
+  recherche au démarrage, installation en un clic. Les mises à jour sont
+  signées ; une version modifiée est refusée.
+- **Paquet .deb, Android, iOS** : l'appli signale la nouvelle version et
+  ouvre la page de téléchargement.
+- **Serveur Linux et Proxmox** : `kittypass-update` (dans le conteneur :
+  `pct exec <CTID> -- kittypass-update`). Chaque semaine automatiquement :
+  `kittypass-update --auto on`, ou `AUTO_UPDATE=oui` à l'installation.
+- **Serveur Windows** :
+  `powershell -ExecutionPolicy Bypass -File "C:\Program Files\KittyPass Server\install.ps1" -Update -Online`
+- **Docker** : `docker compose pull && docker compose up -d`.
 
 ## Structure
 

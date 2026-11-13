@@ -535,6 +535,7 @@
         <button type="button" role="tab" class="tab" data-vdtab="export" data-needs-vault aria-selected="false"><svg><use href="#i-box"/></svg>Exporter</button>
         <button type="button" role="tab" class="tab" data-vdtab="keyfile" data-needs-vault aria-selected="false"><svg><use href="#i-key"/></svg>Fichier clé</button>
         <button type="button" role="tab" class="tab" data-vdtab="account" data-needs-vault aria-selected="false"><svg><use href="#i-user"/></svg>Compte</button>
+        <button type="button" role="tab" class="tab" data-vdtab="updates" aria-selected="false"><svg><use href="#i-sync"/></svg>Mises à jour</button>
       </nav>
       <div class="settings-body">
     <form id="theme-form" data-vdpanel="appearance" method="dialog">
@@ -865,6 +866,20 @@
 
         <div class="actions"><button type="button" class="vd-close">Fermer</button></div>
       </div>
+
+      <form id="updates-form" data-vdpanel="updates" method="dialog" hidden>
+        <p class="summary" id="upd-current"></p>
+        <label class="inline"><input type="checkbox" id="upd-auto"> Rechercher les mises à jour au démarrage</label>
+        <p class="hint">KittyPass demande à GitHub (github.com) le numéro de la dernière version publiée, à chaque démarrage.
+          Rien du coffre n'est envoyé. Les mises à jour sont signées : une version modifiée par un tiers est refusée.</p>
+        <div class="row">
+          <button type="button" id="upd-check">Rechercher maintenant</button>
+          <button type="button" id="upd-install" class="primary" hidden></button>
+        </div>
+        <p class="muted" id="upd-state" role="status"></p>
+        <p class="hint upd-notes" id="upd-notes"></p>
+        <div class="actions"><button type="button" class="vd-close">Fermer</button></div>
+      </form>
 
       <form id="ssh-form" data-vdpanel="ssh" method="dialog" autocomplete="off" hidden>
         <label class="switch-row">

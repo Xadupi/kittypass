@@ -23,6 +23,7 @@ Utilisation : kittypass-server <commande>
   users                     liste les comptes
   disable <utilisateur>     désactive un compte et ferme ses sessions
   enable <utilisateur>      réactive un compte
+  --version                 affiche la version
 
 Variables d'environnement :
   KITTYPASS_DATA             dossier des données (./data)
@@ -64,6 +65,10 @@ fn build_state() -> Result<Arc<AppState>, Box<dyn Error>> {
 async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt().with_target(false).init();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if matches!(args.first().map(String::as_str), Some("--version" | "-V" | "version")) {
+        println!("kittypass-server {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
     let state = build_state()?;
 
     match args.first().map(String::as_str) {

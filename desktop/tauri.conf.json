@@ -40,5 +40,16 @@
       "icons/icon.ico",
       "icons/icon.png"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1MjUzN0MxN0JDRjAzREMKUldUY0E4OTd3VGNsMWVNN0tCVFo5RDRyQkNZRnJYRFROZDIwRnN2RkVkVVgxWklaVC9ZdEJlZFcK",
+      "endpoints": [
+        "https://github.com/Xadupi/kittypass/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -11,6 +11,7 @@ mod biometric;
 mod raise;
 mod browser;
 mod favicon;
+mod update;
 #[cfg(desktop)]
 mod quick;
 mod secrets;
@@ -484,6 +485,8 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(windows)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     #[cfg(target_os = "android")]
@@ -533,7 +536,7 @@ pub fn run() {
             account::revoke_other_sessions, account::change_master_password, account::adopt_master_password,
             account::setup_2fa, account::enable_2fa, account::disable_2fa, account::vault_versions,
             account::restore_version, account::save_version, account::create_invite, account::users,
-            account::set_user_disabled, favicon::favicon, favicon::forget_favicon, favicon::favicons_fetch_all, clone_entry, expire_entry, set_entry_tags, open_entry_url,
+            account::set_user_disabled, favicon::favicon, favicon::forget_favicon, favicon::favicons_fetch_all, update::update_check, update::update_install, update::update_open_page, clone_entry, expire_entry, set_entry_tags, open_entry_url,
             biometric::biometric_status, biometric::biometric_enable, biometric::biometric_disable, biometric::biometric_unlock,
             autofill_status, autofill_settings,
             #[cfg(desktop)]

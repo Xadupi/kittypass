@@ -19,6 +19,7 @@
 #             le serveur écoute sur :8080 et ne fait confiance qu'à cette IP
 #   DOMAIN    sans PROXY_IP : nom de domaine public, installe Caddy et le HTTPS
 #   REQUIRE_2FA  « true » pour imposer la 2FA à tous les comptes
+#   AUTO_UPDATE  « oui » : mise à jour chaque semaine depuis GitHub (kittypass-update)
 set -Eeuo pipefail
 export LC_ALL=C.UTF-8 LANG=C.UTF-8 LANGUAGE=
 
@@ -61,6 +62,7 @@ if [[ "$CT_IP" != dhcp ]]; then ask CT_GW "Passerelle" "$(ip route | awk '/^defa
 ask PROXY_IP "IP de ton reverse proxy HTTPS existant (vide : aucun)" ""
 if [[ -n "$PROXY_IP" ]]; then DOMAIN=; else ask DOMAIN "Nom de domaine public, Caddy sera installé (vide : aucun)" ""; fi
 REQUIRE_2FA=${REQUIRE_2FA:-false}
+ask AUTO_UPDATE "Mise à jour automatique chaque semaine depuis GitHub (oui/non)" "non"
 
 [[ "$CTID" =~ ^[0-9]+$ ]] || die "CTID invalide"
 pct status "$CTID" >/dev/null 2>&1 && die "le conteneur $CTID existe déjà"
@@ -111,6 +113,7 @@ ok "Debian à jour"
 if [[ -n "$PROXY_IP" ]]; then BIND=0.0.0.0:8080; PROXIES=$PROXY_IP
 elif [[ -n "$DOMAIN" ]]; then BIND=127.0.0.1:8080; PROXIES=127.0.0.1; else BIND=0.0.0.0:8080; PROXIES=; fi
 pct push "$CTID" "$WORK/kittypass-server" /usr/local/bin/kittypass-server --perms 755
+pct push "$CTID" "$WORK/kittypass-update" /usr/local/sbin/kittypass-update --perms 755
 pct exec "$CTID" -- bash -c "set -e
   id kittypass >/dev/null 2>&1 || useradd --system --home-dir /var/lib/kittypass --shell /usr/sbin/nologin kittypass
   install -d -m 700 -o kittypass -g kittypass /var/lib/kittypass
@@ -161,6 +164,7 @@ EOF
   done
   journalctl -u kittypass -n 20 --no-pager; exit 1"
 ok "service kittypass actif"
+if [[ "$AUTO_UPDATE" =~ ^(o|oui|y|yes|true)$ ]]; then pct exec "$CTID" -- /usr/local/sbin/kittypass-update --auto on; fi
 
 # --- HTTPS (Caddy) si un domaine est donné
 if [[ -n "$DOMAIN" ]]; then
@@ -209,5 +213,6 @@ fi
 echo "  Invitation ADMIN (72 h, une seule fois) : $INVITE"
 echo "  → Dans KittyPass : « Créer un compte », colle ce code, puis active la 2FA."
 echo "  Sauvegarde : /var/lib/kittypass (kittypass.db, et secret.key À GARDER À PART)."
+echo "  Mise à jour : pct exec $CTID -- kittypass-update   (automatique : … kittypass-update --auto on)"
 exit 0
 __KITTYPASS_PAYLOAD__

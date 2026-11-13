@@ -662,6 +662,85 @@ listen("favicon_progress", (ev) => {
   if ($("favicons-all").disabled) $("favicons-progress").textContent = `${p.done} / ${p.total} sites… (${p.found} icônes trouvées)`;
 });
 
+// ---------------------------------------------------------------- mises à jour
+
+const UPDATE_KEY = "kittypass.updates"; // « off » : pas de recherche au démarrage
+let updateInfo = null;
+
+function updatesAuto() {
+  try {
+    return localStorage.getItem(UPDATE_KEY) !== "off";
+  } catch (_) {
+    return true;
+  }
+}
+
+function showUpdate(info) {
+  updateInfo = info;
+  $("upd-current").textContent = `Version installée : ${info.current}`;
+  const btn = $("upd-install");
+  btn.hidden = !info.latest;
+  $("upd-notes").textContent = info.latest ? info.notes || "" : "";
+  if (info.latest) {
+    $("upd-state").textContent = `KittyPass ${info.latest} est disponible.`;
+    btn.textContent = info.installable ? "Installer et redémarrer" : "Télécharger";
+  } else {
+    $("upd-state").textContent = "KittyPass est à jour.";
+  }
+}
+
+async function renderUpdates() {
+  $("upd-auto").checked = updatesAuto();
+  if (updateInfo) return showUpdate(updateInfo);
+  $("upd-state").textContent = "";
+  try {
+    $("upd-current").textContent = `Version installée : ${await window.__TAURI__.app.getVersion()}`;
+  } catch (_) {
+    $("upd-current").textContent = "";
+  }
+}
+
+$("upd-auto").addEventListener("change", (ev) => {
+  try {
+    localStorage.setItem(UPDATE_KEY, ev.target.checked ? "on" : "off");
+  } catch (_) {}
+});
+$("upd-check").addEventListener("click", (ev) =>
+  busy(ev.currentTarget, async () => {
+    $("upd-state").textContent = "Recherche…";
+    try {
+      showUpdate(await invoke("update_check"));
+    } catch (e) {
+      $("upd-state").textContent = `Impossible : ${errorText(e)}`;
+    }
+  }),
+);
+$("upd-install").addEventListener("click", (ev) =>
+  busy(ev.currentTarget, async () => {
+    try {
+      if (!updateInfo?.installable) return await invoke("update_open_page");
+      $("upd-state").textContent = "Téléchargement…";
+      await invoke("update_install"); // redémarre l'appli si tout va bien
+    } catch (e) {
+      $("upd-state").textContent = `Impossible : ${errorText(e)}`;
+    }
+  }),
+);
+listen("update_progress", (ev) => {
+  const { done, total } = ev.payload;
+  $("upd-state").textContent = total ? `Téléchargement… ${Math.min(100, Math.round((done * 100) / total))} %` : "Téléchargement…";
+});
+// Recherche discrète au démarrage (fenêtre principale seulement).
+if (!QUICK && updatesAuto()) {
+  setTimeout(async () => {
+    try {
+      const info = await invoke("update_check");
+      updateInfo = info;
+      if (info.latest) setStatus(`KittyPass ${info.latest} est disponible : Paramètres → Mises à jour.`);
+    } catch (_) {}
+  }, 8000);
+}
+
 function renderEntries() {
   const rows = sortedItems().map((it) => {
     const tr = el(
@@ -1666,6 +1745,7 @@ function onVaultTab(name) {
   else if (name === "export") renderExport();
   else if (name === "browser") renderBrowser();
   else if (name === "account") renderAccount();
+  else if (name === "updates") renderUpdates();
   else renderKeyfile();
 }
 
