@@ -3174,7 +3174,7 @@ dependencies = [
 
 [[package]]
 name = "kittypass-app"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -3192,7 +3192,7 @@ dependencies = [
 
 [[package]]
 name = "kittypass-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "argon2",
  "base64 0.23.1",
@@ -3230,7 +3230,7 @@ dependencies = [
 
 [[package]]
 name = "kittypass-desktop"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "ashpd",
  "base64 0.23.1",
@@ -3262,7 +3262,7 @@ dependencies = [
 
 [[package]]
 name = "kittypass-proxy"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.23.1",
  "kittypass-app",
@@ -3274,7 +3274,7 @@ dependencies = [
 
 [[package]]
 name = "kittypass-server"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
