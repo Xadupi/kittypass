@@ -334,9 +334,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Seulement nos fichiers (pas les traces de build Docker).
       - uses: actions/download-artifact@v4
         with:
           path: art
+          pattern: kittypass-*
       - name: Fichiers de la Release
         run: |
           v=${GITHUB_REF_NAME#v}
