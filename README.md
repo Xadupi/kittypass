@@ -132,4 +132,4 @@ les installateurs serveur Linux, Windows et Docker.
 
 ## Licence
 
-GPL-3.0-or-later
+GPL-3.0-or-later, voir [LICENSE](LICENSE)
