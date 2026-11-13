@@ -113,7 +113,7 @@ automatique) et `docker-compose.simple.yml` (derrière un proxy existant).
 - **Paquet .deb, Android, iOS** : l'appli signale la nouvelle version et
   ouvre la page de téléchargement.
 - **Serveur Linux et Proxmox** : `kittypass-update` (dans le conteneur :
-  `pct exec <CTID> -- kittypass-update`). Chaque semaine automatiquement :
+  `pct exec <CTID> -- /usr/local/sbin/kittypass-update`). Chaque semaine automatiquement :
   `kittypass-update --auto on`, ou `AUTO_UPDATE=oui` à l'installation.
 - **Serveur Windows** :
   `powershell -ExecutionPolicy Bypass -File "C:\Program Files\KittyPass Server\install.ps1" -Update -Online`

@@ -213,6 +213,6 @@ fi
 echo "  Invitation ADMIN (72 h, une seule fois) : $INVITE"
 echo "  → Dans KittyPass : « Créer un compte », colle ce code, puis active la 2FA."
 echo "  Sauvegarde : /var/lib/kittypass (kittypass.db, et secret.key À GARDER À PART)."
-echo "  Mise à jour : pct exec $CTID -- kittypass-update   (automatique : … kittypass-update --auto on)"
+echo "  Mise à jour : pct exec $CTID -- /usr/local/sbin/kittypass-update   (automatique : … kittypass-update --auto on)"
 exit 0
 __KITTYPASS_PAYLOAD__
