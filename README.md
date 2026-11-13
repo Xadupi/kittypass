@@ -21,8 +21,9 @@ contenu des coffres (zero-knowledge).
 
 Les fichiers sont dans les [Releases](../../releases), avec `SHA256SUMS.txt`.
 
-macOS : l'application n'est pas signée ; au premier lancement, clic droit →
-Ouvrir (ou `xattr -dr com.apple.quarantine /Applications/KittyPass.app`).
+macOS : l'application n'a pas de signature Apple. Si macOS dit qu'elle est
+« endommagée », après l'avoir copiée dans Applications :
+`xattr -cr /Applications/KittyPass.app`
 
 ## Fonctions
 

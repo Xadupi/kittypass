@@ -3,6 +3,10 @@
     "beforeBuildCommand": "sh desktop/scripts/build-proxy.sh"
   },
   "bundle": {
-    "externalBin": ["binaries/kittypass-proxy"]
+    "externalBin": ["binaries/kittypass-proxy"],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    }
   }
 }
