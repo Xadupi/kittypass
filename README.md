@@ -10,6 +10,7 @@ contenu des coffres (zero-knowledge).
 |---|---|
 | Windows 10/11 | `KittyPass_<version>_x64-setup.exe` (WebView2 inclus) |
 | Debian / Ubuntu | `KittyPass_<version>_amd64.deb` |
+| Fedora / RHEL | `KittyPass-<version>-1.x86_64.rpm` |
 | Autres Linux | `KittyPass_<version>_amd64.AppImage` |
 | macOS 11+ (Apple Silicon) | `KittyPass_<version>_aarch64.dmg` (non signé) |
 | Android 8+ | `KittyPass-<version>.apk` |
@@ -110,7 +111,7 @@ automatique) et `docker-compose.simple.yml` (derrière un proxy existant).
 - **Application** (Windows, macOS, AppImage) : Paramètres → Mises à jour,
   recherche au démarrage, installation en un clic. Les mises à jour sont
   signées ; une version modifiée est refusée.
-- **Paquet .deb, Android, iOS** : l'appli signale la nouvelle version et
+- **Paquets .deb et .rpm, Android, iOS** : l'appli signale la nouvelle version et
   ouvre la page de téléchargement.
 - **Serveur Linux et Proxmox** : `kittypass-update` (dans le conteneur :
   `pct exec <CTID> -- /usr/local/sbin/kittypass-update`). Chaque semaine automatiquement :

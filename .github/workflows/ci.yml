@@ -114,6 +114,25 @@ jobs:
           name: kittypass-debian
           path: target/release/bundle/deb/*.deb
 
+  fedora:
+    needs: tests
+    runs-on: ubuntu-latest
+    # Paquet .rpm construit dans un vrai Fedora.
+    container: fedora:42
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          dnf -y install curl gcc gcc-c++ make pkgconf-pkg-config file openssl-devel webkit2gtk4.1-devel gtk3-devel libappindicator-gtk3-devel librsvg2-devel
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+      - run: |
+          . "$HOME/.cargo/env"
+          cargo install tauri-cli --version "^2" --locked
+          cd desktop && cargo tauri build --bundles rpm --config tauri.linux.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kittypass-fedora
+          path: target/release/bundle/rpm/*.rpm
+
   # iOS (expérimental) : .ipa NON signé, à installer avec Sideloadly ou
   # AltStore et un identifiant Apple (à réinstaller tous les 7 jours).
   ios:
@@ -329,7 +348,7 @@ jobs:
   # SHA256SUMS.txt et latest.json (mise à jour intégrée de l'appli).
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [desktop, debian, ios, android, docker, server-linux, server-windows]
+    needs: [desktop, debian, fedora, ios, android, docker, server-linux, server-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -344,7 +363,7 @@ jobs:
           v=${GITHUB_REF_NAME#v}
           mkdir out
           find art -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.AppImage' -o -name '*.dmg' \
-            -o -name '*.deb' -o -name '*.ipa' -o -name '*.apk' -o -name '*.sh' -o -name '*.zip' \
+            -o -name '*.deb' -o -name '*.rpm' -o -name '*.ipa' -o -name '*.apk' -o -name '*.sh' -o -name '*.zip' \
             -o -name '*.sig' -o -name '*.app.tar.gz' \) -exec cp -- {} out/ \;
           # Archive de mise à jour macOS : nom versionné.
           if [ -f out/KittyPass.app.tar.gz ]; then

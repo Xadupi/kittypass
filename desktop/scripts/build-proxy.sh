@@ -1,7 +1,7 @@
 #!/bin/sh
 # Construit le relais navigateur kittypass-proxy et le place là où Tauri
 # l'attend (externalBin : nom suffixé par la cible Rust). Lancé par
-# `cargo tauri build --config tauri.linux.json` (paquets .deb et AppImage),
+# `cargo tauri build --config tauri.linux.json` (paquets .deb, .rpm et AppImage),
 # ou avec KP_TARGET=x86_64-pc-windows-msvc pour Windows depuis Linux (cargo-xwin).
 set -eu
 cd "$(dirname "$0")/.."
