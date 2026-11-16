@@ -74,6 +74,10 @@ pub struct Profile {
     /// Jamais son contenu.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_file: Option<PathBuf>,
+    /// Coffre local seul (comme KeePassXC) : aucun serveur, pas de
+    /// synchronisation ni de compte.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -87,6 +91,8 @@ pub struct Status {
     pub key_file: Option<String>,
     /// Le coffre déverrouillé est protégé par un fichier clé.
     pub has_key_file: bool,
+    /// Coffre local seul, sans serveur.
+    pub local: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -96,12 +102,16 @@ pub enum SetupMode {
     Create,
     /// Appareil supplémentaire : récupère le coffre existant.
     Join,
+    /// Coffre local seul, sans serveur (les champs du serveur sont ignorés).
+    Local,
 }
 
 #[derive(Deserialize)]
 pub struct SetupRequest {
     pub mode: SetupMode,
+    #[serde(default)]
     pub server_url: String,
+    #[serde(default)]
     pub username: String,
     pub password: Zeroizing<String>,
     pub invite: Option<String>,
@@ -151,7 +161,7 @@ impl App {
         storage::ensure_private_dir(&dir)?;
         let profile = storage::read_json::<Profile>(&dir.join("profile.json"))?;
         // Un profil modifié pour pointer vers un serveur en HTTP est refusé ici.
-        if let Some(p) = &profile {
+        if let Some(p) = profile.as_ref().filter(|p| !p.local) {
             kittypass_core::client::validate_server_url(&p.server_url)?;
         }
         Ok(Self {
@@ -207,6 +217,7 @@ impl App {
             last_seen: inner.profile.as_ref().map_or(0, |p| p.last_seen),
             key_file: inner.profile.as_ref().and_then(|p| p.key_file.as_ref()).map(|p| p.display().to_string()),
             has_key_file: inner.vault.as_ref().is_some_and(Vault::has_key_file),
+            local: inner.profile.as_ref().is_some_and(|p| p.local),
         }
     }
 
@@ -245,6 +256,21 @@ impl App {
         }
         let keyfile = req.key_file.as_deref().map(keyfile::read_key_file).transpose()?;
         let master = MasterKey::new(&req.password, keyfile);
+        if req.mode == SetupMode::Local {
+            inner.vault = Some(Vault::create_with_key(&master)?);
+            inner.profile = Some(Profile {
+                server_url: String::new(),
+                username: String::new(),
+                vault_id: String::new(),
+                device: req.device,
+                last_seen: 0,
+                key_file: if req.remember_key_file { req.key_file.clone() } else { None },
+                local: true,
+            });
+            self.persist(&inner)?;
+            self.touch();
+            return Ok(false);
+        }
         let client = self.new_client(&req.server_url)?;
         if let Some(invite) = req.invite.as_deref().filter(|i| !i.trim().is_empty()) {
             client.register(invite.trim(), &req.username, &req.password).await?;
@@ -260,6 +286,7 @@ impl App {
                     .ok_or(AppError::NoRemoteVault)?;
                 (v, info.id.clone(), seen)
             }
+            SetupMode::Local => unreachable!("traité plus haut"),
             SetupMode::Create => {
                 if !vaults.is_empty() {
                     // Créer un second coffre indépendant mènerait à des coffres
@@ -279,6 +306,7 @@ impl App {
             device: req.device,
             last_seen,
             key_file: if req.remember_key_file { req.key_file.clone() } else { None },
+            local: false,
         });
         inner.vault = Some(vault);
         self.save_tokens(&client)?;
@@ -340,6 +368,9 @@ impl App {
     /// rafraîchissement du trousseau, sinon se reconnecte avec le mot de passe
     /// du coffre déverrouillé (sans 2FA : `TotpRequired` remonte à l'interface).
     async fn connected_client(&self, profile: &Profile, password: &str) -> AppResult<Arc<Client>> {
+        if profile.local {
+            return Err(AppError::LocalOnly);
+        }
         {
             let inner = self.inner.lock().await;
             if let Some(c) = &inner.client
@@ -368,6 +399,9 @@ impl App {
         let (profile, password) = {
             let inner = self.inner.lock().await;
             let p = inner.profile.clone().ok_or(AppError::NotConfigured)?;
+            if p.local {
+                return Err(AppError::LocalOnly);
+            }
             let pw = Zeroizing::new(inner.vault.as_ref().ok_or(AppError::Locked)?.password().to_owned());
             (p, pw)
         };

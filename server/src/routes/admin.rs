@@ -130,3 +130,77 @@ pub async fn set_user_disabled(
     audit(&conn, state.now(), Some(&user.user_id), event, &ip.to_string());
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
+
+/// Compte visé par une action d'admin, jamais l'admin lui-même.
+/// Renvoie (id, est admin).
+fn other_user(conn: &rusqlite::Connection, user: &AuthUser, username: &str, own: &'static str) -> ApiResult<(String, bool)> {
+    let username = super::normalize_username(username)?;
+    let (id, is_admin): (String, bool) = conn
+        .query_row("SELECT id, is_admin FROM users WHERE username = ?1", [&username], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()?
+        .ok_or(ApiError::NotFound)?;
+    if id == user.user_id {
+        return Err(ApiError::BadRequest(own));
+    }
+    Ok((id, is_admin))
+}
+
+pub const DEFAULT_RESET_HOURS: i64 = 24;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResetReq {
+    hours: Option<i64>,
+}
+
+/// Code de réinitialisation du mot de passe d'un compte (admins). Le serveur
+/// ne peut pas déchiffrer le coffre : le code ne permet que de choisir un
+/// nouveau mot de passe de connexion. Viser un autre admin exige la 2FA.
+pub async fn create_reset(
+    axum::extract::State(state): State,
+    ClientIp(ip): ClientIp,
+    user: AuthUser,
+    axum::extract::Path(username): axum::extract::Path<String>,
+    Json(req): Json<ResetReq>,
+) -> ApiResult<Json<InviteResp>> {
+    if !user.is_admin {
+        return Err(ApiError::Forbidden("admin_required"));
+    }
+    let hours = req.hours.unwrap_or(DEFAULT_RESET_HOURS);
+    if !(1..=24 * 7).contains(&hours) {
+        return Err(ApiError::BadRequest("durée invalide"));
+    }
+    let conn = state.db();
+    let (target, target_admin) = other_user(&conn, &user, &username, "utilisez « Changer le mot de passe » pour votre compte")?;
+    if target_admin && !user.has_2fa {
+        return Err(ApiError::Forbidden("2fa_setup_required"));
+    }
+    let code = random_token();
+    conn.execute(
+        "INSERT OR REPLACE INTO password_resets (user_id, code_hash, expires_at) VALUES (?1, ?2, ?3)",
+        params![target, token_hash(&code), state.now() + hours * 3600],
+    )?;
+    audit(&conn, state.now(), Some(&user.user_id), "admin_password_reset", &ip.to_string());
+    Ok(Json(InviteResp { code, expires_in_hours: hours }))
+}
+
+/// Supprime un autre compte, ses coffres et ses sessions (admins). Viser un
+/// autre admin exige la 2FA.
+pub async fn delete_user(
+    axum::extract::State(state): State,
+    ClientIp(ip): ClientIp,
+    user: AuthUser,
+    axum::extract::Path(username): axum::extract::Path<String>,
+) -> ApiResult<axum::http::StatusCode> {
+    if !user.is_admin {
+        return Err(ApiError::Forbidden("admin_required"));
+    }
+    let conn = state.db();
+    let (target, target_admin) = other_user(&conn, &user, &username, "utilisez « Supprimer mon compte » pour votre compte")?;
+    if target_admin && !user.has_2fa {
+        return Err(ApiError::Forbidden("2fa_setup_required"));
+    }
+    conn.execute("DELETE FROM users WHERE id = ?1", [&target])?;
+    audit(&conn, state.now(), Some(&user.user_id), "admin_delete_user", &ip.to_string());
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}

@@ -103,3 +103,30 @@ pub async fn users(app: AppState<'_>) -> R<Vec<UserInfo>> {
 pub async fn set_user_disabled(app: AppState<'_>, username: String, disabled: bool) -> R<()> {
     app.set_user_disabled(&username, disabled).await
 }
+
+#[tauri::command]
+pub async fn create_reset(app: AppState<'_>, username: String) -> R<InviteView> {
+    app.create_reset(&username).await
+}
+
+#[tauri::command]
+pub async fn delete_user(app: AppState<'_>, username: String) -> R<()> {
+    app.delete_user(&username).await
+}
+
+#[tauri::command]
+pub async fn delete_account(app: AppState<'_>, password: Zeroizing<String>, totp: Option<String>) -> R<()> {
+    app.delete_account(&password, totp.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn reset_password(
+    app: AppState<'_>,
+    server_url: String,
+    username: String,
+    code: String,
+    password: Zeroizing<String>,
+    new_vault: bool,
+) -> R<()> {
+    app.reset_password(&server_url, &username, &code, &password, new_vault).await
+}

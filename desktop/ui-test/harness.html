@@ -50,11 +50,17 @@
       <div class="segmented" role="radiogroup">
         <label><input type="radio" name="mode" value="create" checked> Premier appareil</label>
         <label><input type="radio" name="mode" value="join"> Rejoindre un coffre</label>
+        <label><input type="radio" name="mode" value="local"> Sans serveur</label>
+        <input type="radio" name="mode" value="reset" hidden aria-label="Mot de passe oublié">
       </div>
-      <label>Adresse du serveur
+      <p class="hint only-local">Coffre local, comme KeePassXC : il reste sur cet appareil, sans compte ni
+        synchronisation. Pensez à l'exporter (copie .kdbx) pour le sauvegarder.</p>
+      <p class="hint only-reset">Mot de passe oublié : l'administrateur du serveur vous donne un code de
+        réinitialisation. Choisissez ici votre nouveau mot de passe maître.</p>
+      <label class="only-server">Adresse du serveur
         <input name="server_url" type="url" required placeholder="https://coffre.example.org" spellcheck="false">
       </label>
-      <label>Identifiant
+      <label class="only-server">Identifiant
         <input name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]+" spellcheck="false">
       </label>
       <label>Mot de passe maître
@@ -63,7 +69,12 @@
       <label class="only-create">Confirmer le mot de passe maître
         <input name="confirm" type="password">
       </label>
-      <label class="only-create">Code d'invitation <small>(laisser vide si le compte existe déjà)</small>
+      <label class="only-reset">Code de réinitialisation
+        <input name="reset_code" spellcheck="false">
+      </label>
+      <label class="inline only-reset"><input type="checkbox" name="new_vault"> Aucun de mes appareils n'a le coffre
+        ouvert : repartir d'un coffre vide (l'ancien reste sur le serveur, illisible sans l'ancien mot de passe)</label>
+      <label class="only-create only-server no-reset">Code d'invitation <small>(laisser vide si le compte existe déjà)</small>
         <input name="invite" spellcheck="false">
       </label>
       <label id="setup-totp" hidden>Code 2FA ou code de secours
@@ -86,6 +97,8 @@
         et ne peut pas être récupéré en cas d'oubli.</p>
       <p class="error" id="setup-error" role="alert"></p>
       <button type="submit" class="primary">Continuer</button>
+      <button type="button" class="link no-reset only-server" id="setup-forgot">Mot de passe oublié ? J'ai un code de réinitialisation</button>
+      <button type="button" class="link only-reset" id="setup-back">Retour</button>
     </form>
   </section>
 
@@ -645,7 +658,7 @@
         </label>
         <div class="row">
           <span class="path muted" id="import-path">Aucun fichier choisi</span>
-          <button type="button" id="import-pick">Choisir le fichier…</button>
+          <button type="button" id="import-pick">Choisir les fichiers…</button>
         </div>
         <div id="import-kdbx" hidden>
           <label>Mot de passe de ce coffre
@@ -785,7 +798,7 @@
           <div class="actions"><button type="submit" class="primary" id="pw-run">Changer le mot de passe</button></div>
         </form>
 
-        <section class="acct-section">
+        <section class="acct-section only-remote">
           <h3>Double authentification (2FA)</h3>
           <p id="tfa-state"></p>
           <div id="tfa-setup" hidden>
@@ -816,7 +829,7 @@
           <p class="error" id="tfa-error" role="alert"></p>
         </section>
 
-        <section class="acct-section">
+        <section class="acct-section only-remote">
           <h3>Appareils connectés</h3>
           <ul id="sess-list" class="site-list"></ul>
           <div class="actions"><button type="button" id="sess-others" class="small">Déconnecter les autres appareils</button></div>
@@ -824,7 +837,7 @@
           <p class="error" id="sess-error" role="alert"></p>
         </section>
 
-        <section class="acct-section">
+        <section class="acct-section only-remote">
           <h3>Versions du coffre sur le serveur</h3>
           <p class="hint">Le serveur garde les 50 dernières versions. « Récupérer » copie une version dans un nouveau
             groupe, sans rien écraser : vous reprenez ce qu'il faut puis supprimez le reste.</p>
@@ -861,9 +874,30 @@
             </div>
           </div>
           <h3>Comptes</h3>
+          <p class="hint">« Réinitialiser » donne un code à transmettre à la personne qui a oublié son mot de passe
+            (valable 24 h, une fois). Le coffre reste chiffré : vous n'y avez jamais accès.</p>
           <ul id="users-list" class="site-list"></ul>
+          <div id="reset-result" class="warning" hidden>
+            <strong id="reset-title"></strong>
+            <code id="reset-code" class="invite-code"></code>
+            <p class="hint" id="reset-info"></p>
+            <div class="actions">
+              <button type="button" class="small" id="reset-copy">Copier</button>
+              <button type="button" class="small" id="reset-done">C'est transmis</button>
+            </div>
+          </div>
           <p class="error" id="admin-error" role="alert"></p>
         </section>
+
+        <form id="delacct-form" class="acct-section only-remote" autocomplete="off">
+          <h3>Supprimer mon compte</h3>
+          <p class="hint">Le compte et le coffre sont effacés du serveur et vos autres appareils sont déconnectés.
+            Sur cet appareil, le coffre reste ouvert et devient un coffre local, sans serveur.</p>
+          <label>Mot de passe maître <input name="password" type="password" required></label>
+          <label id="delacct-totp-row">Code 2FA <input name="totp" inputmode="numeric" autocomplete="one-time-code"></label>
+          <p class="error" id="delacct-error" role="alert"></p>
+          <div class="actions"><button type="submit" class="danger" id="delacct-run">Supprimer mon compte</button></div>
+        </form>
 
         <div class="actions"><button type="button" class="vd-close">Fermer</button></div>
       </div>

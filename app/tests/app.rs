@@ -921,3 +921,44 @@ async fn used_invite_and_taken_username_have_clear_errors() {
     assert!(!e.to_string().contains("409"));
     assert!(!b.status().await.configured);
 }
+
+/// Coffre local seul (comme KeePassXC) : aucun serveur, tout reste sur le disque.
+#[tokio::test]
+async fn local_vault_without_server() {
+    let dir = tmpdir("local");
+    let app = App::open(dir.clone(), Arc::new(MemoryStore::default())).unwrap();
+    let setup = SetupRequest {
+        mode: SetupMode::Local,
+        server_url: String::new(),
+        username: String::new(),
+        password: Zeroizing::new(PW.into()),
+        invite: None,
+        totp: None,
+        device: "PC".into(),
+        key_file: None,
+        remember_key_file: false,
+    };
+    assert!(!app.setup(setup).await.unwrap());
+    let st = app.status().await;
+    assert!(st.configured && st.unlocked && st.local);
+    let id = app.add(None, entry("Local", "secret-local")).await.unwrap();
+
+    // Ni synchronisation ni compte : une erreur claire, sans appel réseau.
+    assert!(matches!(app.sync().await, Err(AppError::LocalOnly)));
+    assert!(matches!(app.account().await, Err(AppError::LocalOnly)));
+    assert!(matches!(app.relogin("123456").await, Err(AppError::LocalOnly)));
+
+    // Changement du mot de passe maître, local lui aussi.
+    let new = "nouveau-mot-de-passe-local";
+    app.change_master_password(PW, new).await.unwrap();
+    app.lock().await;
+    drop(app);
+
+    // Réouverture depuis le disque.
+    let app = App::open(dir.clone(), Arc::new(MemoryStore::default())).unwrap();
+    assert!(app.status().await.local);
+    assert!(app.unlock(PW).await.is_err());
+    app.unlock(new).await.unwrap();
+    assert_eq!(app.secret(&id, SecretField::Password, None).await.unwrap().as_str(), "secret-local");
+    let _ = std::fs::remove_dir_all(dir);
+}

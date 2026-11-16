@@ -41,7 +41,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/login", post(auth::login))
         .route("/token/refresh", post(auth::refresh))
         .route("/logout", post(auth::logout))
-        .route("/account", get(auth::account))
+        .route("/account", get(auth::account).delete(auth::delete_account))
+        .route("/account/reset", post(auth::reset_password))
         .route("/account/password", post(auth::change_password))
         .route("/sessions", get(auth::list_sessions))
         .route("/sessions/{id}", delete(auth::revoke_session))
@@ -51,6 +52,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/admin/invites", post(admin::create_invite))
         .route("/admin/users", get(admin::list_users))
         .route("/admin/users/{username}/disabled", post(admin::set_user_disabled))
+        .route("/admin/users/{username}/reset", post(admin::create_reset))
+        .route("/admin/users/{username}", delete(admin::delete_user))
         .route("/vaults", get(vaults::list).post(vaults::create))
         .route(
             "/vaults/{id}",

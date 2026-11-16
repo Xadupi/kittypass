@@ -179,6 +179,54 @@ impl App {
         self.after_call(&c, r).await
     }
 
+    /// Code de réinitialisation du mot de passe d'un autre compte (admins).
+    pub async fn create_reset(&self, username: &str) -> AppResult<InviteView> {
+        let c = self.account_client().await?;
+        let r = c.create_reset(username, 24).await;
+        let inv = self.after_call(&c, r).await?;
+        let server_url = self.inner.lock().await.profile.as_ref().map(|p| p.server_url.clone()).unwrap_or_default();
+        Ok(InviteView { code: inv.code, expires_in_hours: inv.expires_in_hours, admin: false, server_url })
+    }
+
+    /// Supprime un autre compte et ses coffres (admins).
+    pub async fn delete_user(&self, username: &str) -> AppResult<()> {
+        let c = self.account_client().await?;
+        let r = c.delete_user(username).await;
+        self.after_call(&c, r).await
+    }
+
+    /// Supprime le compte sur le serveur. Le coffre reste sur cet appareil,
+    /// qui passe en coffre local (sans serveur).
+    pub async fn delete_account(&self, password: &str, totp: Option<&str>) -> AppResult<()> {
+        let c = self.account_client().await?;
+        let username = self.inner.lock().await.profile.as_ref().map(|p| p.username.clone()).ok_or(AppError::NotConfigured)?;
+        let r = c.delete_account(&username, password, totp.filter(|t| !t.trim().is_empty())).await;
+        self.after_call(&c, r).await?;
+        let mut inner = self.inner.lock().await;
+        inner.client = None;
+        if let Some(p) = inner.profile.as_mut() {
+            p.local = true;
+            p.server_url.clear();
+            p.username.clear();
+            p.vault_id.clear();
+            p.last_seen = 0;
+        }
+        let _ = self.secrets.delete(crate::REFRESH_TOKEN_KEY);
+        let _ = self.secrets.delete(crate::DEVICE_TOKEN_KEY);
+        self.persist(&inner)
+    }
+
+    /// Nouveau mot de passe de connexion avec le code donné par un admin
+    /// (mot de passe oublié). Sans `new_vault`, le coffre reste chiffré avec
+    /// l'ancien : un appareil où il est ouvert adoptera le nouveau.
+    pub async fn reset_password(&self, server_url: &str, username: &str, code: &str, password: &str, new_vault: bool) -> AppResult<()> {
+        if password.chars().count() < kittypass_core::vault::MIN_MASTER_PASSWORD_CHARS {
+            return Err(CoreError::WeakMasterPassword("10 caractères minimum").into());
+        }
+        let c = self.new_client(server_url.trim())?;
+        Ok(c.reset_password(&username.trim().to_ascii_lowercase(), code, password, new_vault).await?)
+    }
+
     pub async fn sessions(&self) -> AppResult<Vec<SessionView>> {
         let c = self.account_client().await?;
         let r = c.list_sessions().await;
@@ -239,6 +287,12 @@ impl App {
         if current == new {
             return Err(CoreError::InvalidArgument("le nouveau mot de passe est identique à l'actuel").into());
         }
+        if profile.local {
+            let mut inner = self.inner.lock().await;
+            inner.vault.as_mut().ok_or(AppError::Locked)?.change_password(current, new)?;
+            self.persist(&inner)?;
+            return Ok(SyncOutcome { version: 0, pulled: 0, pushed: false });
+        }
         let client = self.connected_client(&profile, current).await?;
         let r = client.change_password(&profile.username, current, new).await;
         self.after_call(&client, r).await?;
@@ -262,6 +316,9 @@ impl App {
             let inner = self.inner.lock().await;
             (inner.profile.clone().ok_or(AppError::NotConfigured)?, inner.vault.clone().ok_or(AppError::Locked)?)
         };
+        if profile.local {
+            return Err(AppError::LocalOnly);
+        }
         let client = self.new_client(&profile.server_url)?;
         client.login(&profile.username, new, totp.filter(|t| !t.trim().is_empty()), &profile.device).await?;
         self.save_tokens(&client)?;

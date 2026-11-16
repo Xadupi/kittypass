@@ -11,7 +11,7 @@ let seq = 100;
 const uid = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, "0")}`;
 
 const db = {
-  configured: true,
+  configured: !location.search.includes("setup"),
   unlocked: false,
   groups: [
     { id: "root", parent: null, name: "Racine" },
@@ -80,7 +80,7 @@ function secretOf(e, field) {
 const handlers = {
   status: () => ({
     configured: db.configured, unlocked: db.unlocked, server_url: "https://coffre.example", username: "alice", last_seen: 3,
-    key_file: db.rememberedKey ?? null, has_key_file: db.unlocked && Boolean(db.keyFile),
+    key_file: db.rememberedKey ?? null, has_key_file: db.unlocked && Boolean(db.keyFile), local: Boolean(db.local),
   }),
   unlock: ({ password }) => handlers.unlock_with_key_file({ password, keyFile: db.rememberedKey ?? null, remember: db.rememberedKey != null }),
   unlock_with_key_file: ({ password, keyFile, remember }) => {
@@ -91,6 +91,8 @@ const handlers = {
   },
   // Boîtes de dialogue du système : le test fixe la réponse dans window.__nextPick.
   pick_file: ({ purpose }) => { window.__pickPurpose = purpose; const p = window.__nextPick ?? null; window.__nextPick = null; return p; },
+  setup: ({ req }) => { window.__setupReq = req; if (req.mode === "join" && window.__joinFails) return err("invalid_password", "mot de passe incorrect"); Object.assign(db, { configured: true, unlocked: true, local: req.mode === "local" }); return false; },
+  pick_files: ({ purpose }) => { window.__pickPurpose = purpose; const p = window.__nextPicks ?? []; window.__nextPicks = null; return p; },
   generate_key_file: () => window.__nextKeyFile ?? null,
   set_key_file: ({ change }) => {
     if (!db.unlocked) return err("locked", "coffre verrouillé");
@@ -284,6 +286,10 @@ const handlers = {
     { username: "alice", is_admin: true, totp_enabled: true, disabled: false, created_at: 1790000000, current: true },
     { username: XSS, is_admin: false, totp_enabled: false, disabled: false, created_at: 1795000000, current: false },
   ]),
+  create_reset: ({ username }) => ({ code: "RESET-" + username, expires_in_hours: 24, admin: false, server_url: "https://kp.example" }),
+  delete_user: ({ username }) => { db.users = db.users.filter((u) => u.username !== username); },
+  delete_account: ({ password }) => (password === "correct-password-123" ? void (db.local = true) : err("invalid_credentials", "identifiants invalides")),
+  reset_password: (a) => { window.__resetReq = a; return a.code === "BON-CODE" ? null : err("error", "code de réinitialisation invalide ou expiré"); },
   set_user_disabled: ({ username, disabled }) => { db.users.find((u) => u.username === username).disabled = disabled; },
   sessions: () => structuredClone(db.sessions ??= [
     { id: "s1", device: "Portable", created_at: 1800000000, last_seen: 1800000500, current: true },

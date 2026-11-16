@@ -50,7 +50,7 @@ pub async fn list(axum::extract::State(state): State, user: AuthUser) -> ApiResu
     user.require_full_access(&state)?;
     let conn = state.db();
     let mut stmt = conn.prepare(
-        "SELECT id, name, version, updated_at FROM vaults WHERE owner_id = ?1 ORDER BY name",
+        "SELECT id, name, version, updated_at FROM vaults WHERE owner_id = ?1 AND archived = 0 ORDER BY name",
     )?;
     let rows = stmt
         .query_map([&user.user_id], |r| {
@@ -76,7 +76,7 @@ pub async fn create(
     let now = state.now();
     let mut conn = state.db();
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let count: i64 = tx.query_row("SELECT COUNT(*) FROM vaults WHERE owner_id = ?1", [&user.user_id], |r| r.get(0))?;
+    let count: i64 = tx.query_row("SELECT COUNT(*) FROM vaults WHERE owner_id = ?1 AND archived = 0", [&user.user_id], |r| r.get(0))?;
     if count >= state.config.max_vaults_per_user {
         return Err(ApiError::Forbidden("vault_limit_reached"));
     }

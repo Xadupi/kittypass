@@ -180,7 +180,8 @@ async function refresh() {
   const s = await invoke("status");
   if (!s.configured) return show("setup");
   if (!s.unlocked) {
-    $("unlock-account").textContent = `${s.username} — ${s.server_url}`;
+    state.local = s.local;
+    $("unlock-account").textContent = s.local ? "Coffre local (sans serveur)" : `${s.username} — ${s.server_url}`;
     unlockKey.path = s.key_file ?? null;
     $("unlock-keyfile-remember").checked = s.key_file != null;
     renderKeyPath("unlock", unlockKey.path, "Aucun");
@@ -190,7 +191,10 @@ async function refresh() {
     return;
   }
   show("main");
-  $("status-right").textContent = `${s.username} — ${s.server_url}`;
+  state.local = s.local;
+  document.body.classList.toggle("local-vault", s.local);
+  $("btn-sync").hidden = s.local;
+  $("status-right").textContent = s.local ? "Coffre local (sans serveur)" : `${s.username} — ${s.server_url}`;
   if (!QUICK) {
     await loadGroups();
     await loadEntries();
@@ -260,32 +264,69 @@ $("unlock-keyfile-clear").addEventListener("click", () => {
 });
 
 const setupForm = $("setup-form");
-setupForm.addEventListener("change", () => {
-  document.body.classList.toggle("join", setupForm.mode.value === "join");
+/** Code de réinitialisation déjà utilisé (on ne refait que la configuration). */
+const setupReset = { done: false };
+function renderSetupMode() {
+  const m = setupForm.mode.value;
+  document.body.classList.toggle("join", m === "join");
+  document.body.classList.toggle("local", m === "local");
+  document.body.classList.toggle("reset", m === "reset");
+  // Sans serveur : ni adresse ni identifiant.
+  setupForm.server_url.required = setupForm.username.required = m !== "local";
+  setupForm.reset_code.required = m === "reset";
+  $("setup-error").textContent = "";
+}
+setupForm.addEventListener("change", renderSetupMode);
+$("setup-forgot").addEventListener("click", () => {
+  setupForm.mode.value = "reset";
+  renderSetupMode();
+  setupForm.server_url.focus();
+});
+$("setup-back").addEventListener("click", () => {
+  setupForm.mode.value = "join";
+  renderSetupMode();
 });
 
 setupForm.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = setupForm;
   $("setup-error").textContent = "";
-  if (f.mode.value === "create" && f.password.value !== f.confirm.value) {
+  const mode = f.mode.value;
+  if (mode !== "join" && f.password.value !== f.confirm.value) {
     $("setup-error").textContent = "Les deux mots de passe ne correspondent pas.";
     return;
   }
+  const submit = f.querySelector("button[type=submit]");
+  // Mot de passe oublié : nouveau mot de passe sur le serveur, puis on
+  // rejoint le coffre (ou on en crée un nouveau).
+  if (mode === "reset" && !setupReset.done) {
+    try {
+      await busy(submit, () => invoke("reset_password", {
+        serverUrl: f.server_url.value.trim(), username: f.username.value.trim(), code: f.reset_code.value.trim(),
+        password: f.password.value, newVault: f.new_vault.checked,
+      }));
+      setupReset.done = true;
+    } catch (e) {
+      $("setup-error").textContent = errorText(e);
+      return;
+    }
+  }
   const req = {
-    mode: f.mode.value,
+    mode: mode === "reset" ? (f.new_vault.checked ? "create" : "join") : mode,
     server_url: f.server_url.value.trim(),
     username: f.username.value.trim(),
     password: f.password.value,
-    invite: f.mode.value === "create" ? f.invite.value.trim() || null : null,
+    invite: mode === "create" ? f.invite.value.trim() || null : null,
     totp: f.totp.value.trim() || null,
     device: f.device.value.trim(),
     key_file: setupKey.path,
     remember_key_file: setupKey.path != null && $("setup-keyfile-remember").checked,
   };
   try {
-    const mustSetup2fa = await busy(f.querySelector("button[type=submit]"), () => invoke("setup", { req }));
+    const mustSetup2fa = await busy(submit, () => invoke("setup", { req }));
     f.reset();
+    setupReset.done = false;
+    renderSetupMode();
     renderKeyPath("setup", (setupKey.path = null), "Aucun");
     if (mustSetup2fa) await ask("Le serveur exige la 2FA : configurez-la avant d'accéder au coffre.", { ok: "Compris" });
     await refresh();
@@ -294,7 +335,10 @@ setupForm.addEventListener("submit", async (ev) => {
       $("setup-totp").hidden = false;
       f.totp.focus();
     }
-    $("setup-error").textContent = errorText(e);
+    $("setup-error").textContent =
+      mode === "reset" && e.code === "invalid_password"
+        ? "Nouveau mot de passe enregistré sur le serveur, mais le coffre est encore chiffré avec l'ancien. Ouvrez KittyPass sur un appareil où le coffre est déverrouillé : il proposera d'adopter le nouveau mot de passe. Revenez ensuite ici et choisissez « Rejoindre un coffre »."
+        : errorText(e);
   }
 });
 
@@ -1667,7 +1711,7 @@ $("hibp-run").addEventListener("click", async () => {
 // ---------------------------------------------------------------- coffre : import, export, fichier clé
 
 /** Chemins choisis dans la boîte « Coffre » ; `gen` ignore les réponses tardives après verrouillage. */
-const vd = { importPath: null, importKey: null, exportKey: null, keyPath: null, dest: null, imported: null, gen: 0 };
+const vd = { importPaths: [], importKey: null, exportKey: null, keyPath: null, dest: null, imported: null, gen: 0 };
 
 const IMPORT_PICK = { csv: "csv", kdbx: "kdbx", bitwarden: "bitwarden", "1pux": "1pux" };
 const EXPORT_NOTES = {
@@ -1687,10 +1731,13 @@ function renderImport() {
   const f = $("import-form");
   const kdbx = f.format.value === "kdbx";
   $("import-kdbx").hidden = !kdbx;
-  setPath("import-path", vd.importPath, "Aucun fichier choisi");
+  const n = vd.importPaths.length;
+  setPath("import-path", n > 1 ? `${n} fichiers : ${vd.importPaths.map((p) => p.split(/[\\/]/).pop()).join(", ")}` : (vd.importPaths[0] ?? null), "Aucun fichier choisi");
+  // Plusieurs fichiers : chacun dans son groupe, au nom du fichier.
+  f.name.disabled = n > 1;
   setPath("import-keyfile-path", vd.importKey, "Sans fichier clé");
   $("import-keyfile-clear").hidden = vd.importKey == null;
-  $("import-run").disabled = vd.importPath == null;
+  $("import-run").disabled = n === 0;
   $("import-dest").textContent = "Destination : " + (vd.dest ? groupPath(vd.dest) || state.root.name : "");
 }
 
@@ -1765,7 +1812,7 @@ function closeVaultDialog() {
 
 /** Verrouillage : oublie chemins, résultats et mots de passe saisis. */
 function wipeVaultDialog() {
-  Object.assign(vd, { importPath: null, importKey: null, exportKey: null, keyPath: null, dest: null, imported: null, gen: vd.gen + 1 });
+  Object.assign(vd, { importPaths: [], importKey: null, exportKey: null, keyPath: null, dest: null, imported: null, gen: vd.gen + 1 });
   closeVaultDialog();
   for (const f of ["import-form", "export-form", "keyfile-form"]) $(f).reset();
   $("import-result").hidden = true;
@@ -1791,14 +1838,19 @@ $("settings-dialog").addEventListener("cancel", (ev) => {
 
 // --- import
 $("import-form").format.addEventListener("change", () => {
-  vd.importPath = null;
+  vd.importPaths = [];
   renderImport();
 });
 $("import-pick").addEventListener("click", async () => {
   const gen = vd.gen;
-  const p = await pickPath(IMPORT_PICK[$("import-form").format.value]);
-  if (p && gen === vd.gen) {
-    vd.importPath = p;
+  let paths = [];
+  try {
+    paths = await invoke("pick_files", { purpose: IMPORT_PICK[$("import-form").format.value] });
+  } catch (e) {
+    await ask(errorText(e), { ok: "Fermer" });
+  }
+  if (paths.length && gen === vd.gen) {
+    vd.importPaths = paths;
     renderImport();
   }
 });
@@ -1817,36 +1869,55 @@ $("import-keyfile-clear").addEventListener("click", () => {
 $("import-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target;
-  if (!vd.importPath) return;
+  if (!vd.importPaths.length) return;
   const gen = vd.gen;
   $("import-error").textContent = "";
   $("import-result").hidden = true;
   const kdbx = f.format.value === "kdbx";
-  const req = {
-    format: f.format.value,
-    path: vd.importPath,
-    parent: vd.dest ?? state.root.id,
-    name: f.name.value.trim() || null,
-    password: kdbx ? f.password.value : null,
-    key_file: kdbx ? vd.importKey : null,
-  };
+  const paths = vd.importPaths;
   const btn = $("import-run");
-  btn.textContent = "Import…";
+  let imported = 0, skipped = 0, done = 0;
+  const warnings = [], errors = [];
   try {
-    const r = await busy(btn, () => invoke("import_file", { req }));
+    await busy(btn, async () => {
+      for (const [i, path] of paths.entries()) {
+        const file = path.split(/[\\/]/).pop();
+        btn.textContent = paths.length > 1 ? `Import ${i + 1}/${paths.length}…` : "Import…";
+        const req = {
+          format: f.format.value,
+          path,
+          parent: vd.dest ?? state.root.id,
+          name: paths.length === 1 ? f.name.value.trim() || null : null,
+          password: kdbx ? f.password.value : null,
+          key_file: kdbx ? vd.importKey : null,
+        };
+        try {
+          const r = await invoke("import_file", { req });
+          if (gen !== vd.gen) return;
+          imported += r.imported;
+          skipped += r.skipped;
+          done++;
+          warnings.push(...r.warnings.map((w) => (paths.length > 1 ? `${file} : ${w}` : w)));
+          vd.imported = r.group_id;
+        } catch (e) {
+          if (gen !== vd.gen) return;
+          const msg = e.code === "invalid_password" ? "mot de passe ou fichier clé incorrect" : errorText(e);
+          errors.push(paths.length > 1 ? `${file} : ${msg}` : msg);
+        }
+      }
+    });
     if (gen !== vd.gen) return;
-    f.password.value = "";
-    vd.importPath = null;
-    $("import-summary").textContent =
-      `${countFmt.format(r.imported)} entrée(s) importée(s)` + (r.skipped ? `, ${countFmt.format(r.skipped)} ignorée(s)` : "") + ".";
-    $("import-warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
-    $("import-result").hidden = false;
-    vd.imported = r.group_id;
-    await loadGroups();
-  } catch (e) {
-    if (gen !== vd.gen) return;
-    $("import-error").textContent =
-      e.code === "invalid_password" ? "Mot de passe ou fichier clé du coffre à importer incorrect." : "Import impossible : " + errorText(e);
+    if (done) {
+      f.password.value = "";
+      vd.importPaths = [];
+      $("import-summary").textContent =
+        (paths.length > 1 ? `${done}/${paths.length} fichier(s) : ` : "") +
+        `${countFmt.format(imported)} entrée(s) importée(s)` + (skipped ? `, ${countFmt.format(skipped)} ignorée(s)` : "") + ".";
+      $("import-warnings").replaceChildren(...warnings.map((w) => el("li", {}, w)));
+      $("import-result").hidden = false;
+      await loadGroups();
+    }
+    if (errors.length) $("import-error").textContent = "Import impossible : " + errors.join(" ; ");
   } finally {
     btn.textContent = "Importer";
     if (gen === vd.gen) renderImport();
@@ -2802,7 +2873,7 @@ async function reportSshUnlock() {
 const acct = { gen: 0 };
 
 function acctErrors() {
-  for (const id of ["lock-error", "pw-error", "tfa-error", "sess-error", "ver-error", "ver-done", "admin-error"]) $(id).textContent = "";
+  for (const id of ["lock-error", "pw-error", "tfa-error", "sess-error", "ver-error", "ver-done", "admin-error", "delacct-error"]) $(id).textContent = "";
 }
 
 /** Oublie tout ce qui est affiché ou saisi (fermeture, verrouillage). */
@@ -2821,6 +2892,8 @@ function wipeAccount() {
   $("tfa-codes-list").replaceChildren();
   $("tfa-disable-form").hidden = true;
   hideInvite();
+  hideReset();
+  $("delacct-form").reset();
   $("admin-section").hidden = true;
   $("users-list").replaceChildren();
 }
@@ -2835,12 +2908,18 @@ async function renderAccount() {
   f.on.checked = lc.auto_lock_secs != null;
   f.minutes.value = Math.max(1, Math.round((lc.auto_lock_secs ?? 300) / 60));
   f.minutes.disabled = !f.on.checked;
+  if (state.local) {
+    $("acct-summary").textContent = "Coffre local : il reste sur cet appareil, sans compte ni serveur.";
+    return;
+  }
   $("acct-summary").textContent = "Chargement du compte…";
   try {
     const a = await invoke("account");
     if (gen !== acct.gen) return;
     $("acct-summary").textContent = `Compte « ${a.username} ».`;
     renderTfa(a);
+    $("delacct-totp-row").hidden = !a.totp_enabled;
+    $("delacct-form").totp.required = a.totp_enabled;
     $("admin-section").hidden = !a.is_admin;
     if (a.is_admin) renderUsers();
   } catch (e) {
@@ -2886,14 +2965,14 @@ $("pw-form").addEventListener("submit", async (ev) => {
   $("pw-error").textContent = "";
   if (f.new.value !== f.confirm.value) return ($("pw-error").textContent = "Les deux nouveaux mots de passe diffèrent.");
   if (f.new.value === f.current.value) return ($("pw-error").textContent = "Le nouveau mot de passe est identique à l'actuel.");
-  const ok = await ask("Changer le mot de passe maître ? Les autres appareils seront déconnectés et demanderont le nouveau.", { ok: "Changer" });
+  const ok = await ask(state.local ? "Changer le mot de passe maître de ce coffre ?" : "Changer le mot de passe maître ? Les autres appareils seront déconnectés et demanderont le nouveau.", { ok: "Changer" });
   if (!ok) return;
   const gen = acct.gen;
   try {
     await busy($("pw-run"), () => invoke("change_master_password", { current: f.current.value, new: f.new.value }));
     f.reset();
     setStatus("Mot de passe maître changé.");
-    if (gen === acct.gen) renderSessions();
+    if (gen === acct.gen && !state.local) renderSessions();
   } catch (e) {
     $("pw-error").textContent =
       e.code === "invalid_password" || e.code === "invalid_credentials" ? "Mot de passe actuel incorrect." : "Changement impossible : " + errorText(e);
@@ -3011,6 +3090,37 @@ $("invite-copy").addEventListener("click", async () => {
 });
 $("invite-done").addEventListener("click", hideInvite);
 
+function hideReset() {
+  $("reset-result").hidden = true;
+  $("reset-code").textContent = "";
+  $("reset-info").textContent = "";
+}
+$("reset-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("reset-code").textContent);
+    setStatus("Code de réinitialisation copié.");
+  } catch {
+    $("admin-error").textContent = "Copie impossible : sélectionnez le code et copiez-le à la main.";
+  }
+});
+$("reset-done").addEventListener("click", hideReset);
+
+$("delacct-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("delacct-form");
+  $("delacct-error").textContent = "";
+  if (!(await ask("Supprimer votre compte et votre coffre du serveur ? C'est irréversible. Le coffre restera sur cet appareil, en local.", { ok: "Supprimer mon compte", danger: true }))) return;
+  try {
+    await busy($("delacct-run"), () => invoke("delete_account", { password: f.password.value, totp: f.totp.value.trim() || null }));
+    f.reset();
+    closeVaultDialog();
+    await refresh();
+    setStatus("Compte supprimé : le coffre est maintenant local, sur cet appareil.");
+  } catch (e) {
+    $("delacct-error").textContent = e.code === "invalid_credentials" ? "Mot de passe ou code 2FA incorrect." : errorText(e);
+  }
+});
+
 async function renderUsers() {
   const gen = acct.gen;
   try {
@@ -3024,6 +3134,31 @@ async function renderUsers() {
           el("br"), el("small", { className: "muted" },
             `Créé le ${fmtDate(u.created_at)} · 2FA ${u.totp_enabled ? "active" : "inactive"}${u.disabled ? " · désactivé" : ""}`));
         if (u.current) return el("li", {}, info);
+        const reset = el("button", { type: "button", className: "small" }, "Réinitialiser");
+        reset.addEventListener("click", async () => {
+          if (!(await ask(`Créer un code de réinitialisation du mot de passe de « ${u.username} » ? Ses appareils seront déconnectés quand le code sera utilisé.`, { ok: "Créer le code" }))) return;
+          $("admin-error").textContent = "";
+          try {
+            const r = await busy(reset, () => invoke("create_reset", { username: u.username }));
+            $("reset-title").textContent = `Code de réinitialisation pour « ${u.username} » (affiché une seule fois) :`;
+            $("reset-code").textContent = r.code;
+            $("reset-info").textContent = `Valable ${r.expires_in_hours} h, une seule fois. Dans KittyPass : « Mot de passe oublié ? », avec l'adresse du serveur : ${r.server_url}`;
+            $("reset-result").hidden = false;
+          } catch (e) {
+            $("admin-error").textContent = errorText(e);
+          }
+        });
+        const del = el("button", { type: "button", className: "small danger" }, "Supprimer");
+        del.addEventListener("click", async () => {
+          if (!(await ask(`Supprimer définitivement le compte « ${u.username} » et son coffre sur le serveur ? C'est irréversible. Ses appareils gardent leur copie locale.`, { ok: "Supprimer", danger: true }))) return;
+          $("admin-error").textContent = "";
+          try {
+            await busy(del, () => invoke("delete_user", { username: u.username }));
+            renderUsers();
+          } catch (e) {
+            $("admin-error").textContent = errorText(e);
+          }
+        });
         const b = el("button", { type: "button", className: u.disabled ? "small" : "small danger" }, u.disabled ? "Réactiver" : "Désactiver");
         b.addEventListener("click", async () => {
           if (!u.disabled && !(await ask(`Désactiver le compte « ${u.username} » ? Ses appareils sont déconnectés et il ne peut plus se connecter (ses données restent sur le serveur).`, { ok: "Désactiver", danger: true }))) return;
@@ -3034,7 +3169,7 @@ async function renderUsers() {
             $("admin-error").textContent = errorText(e);
           }
         });
-        return el("li", {}, info, b);
+        return el("li", {}, info, el("span", { className: "row" }, reset, b, del));
       }),
     );
   } catch (e) {
@@ -3194,6 +3329,7 @@ function askNewPassword() {
 // ---------------------------------------------------------------- synchronisation
 
 async function syncNow(verbose = true) {
+  if (state.local) return;
   const btn = $("btn-sync");
   try {
     setStatus("Synchronisation…");

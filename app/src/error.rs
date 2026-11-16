@@ -24,6 +24,8 @@ pub enum AppError {
     Io(String),
     #[error("trousseau du système indisponible")]
     SecretStore,
+    #[error("coffre local : pas de serveur")]
+    LocalOnly,
 }
 
 impl From<std::io::Error> for AppError {
@@ -67,6 +69,7 @@ impl AppError {
             Self::NoTotp => "no_totp",
             Self::Io(_) => "io",
             Self::SecretStore => "secret_store",
+            Self::LocalOnly => "local_only",
         }
     }
 }

@@ -81,6 +81,13 @@ CREATE TABLE IF NOT EXISTS trusted_devices (
 );
 CREATE INDEX IF NOT EXISTS trusted_devices_user ON trusted_devices(user_id);
 
+-- Réinitialisation du mot de passe par un admin : code à usage unique.
+CREATE TABLE IF NOT EXISTS password_resets (
+    user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash   BLOB NOT NULL,
+    expires_at  INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit (
     ts       INTEGER NOT NULL,
     user_id  TEXT,
@@ -98,7 +105,14 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
          PRAGMA journal_mode = WAL;
          PRAGMA secure_delete = ON;",
     )?;
-    conn.execute_batch(SCHEMA)
+    conn.execute_batch(SCHEMA)?;
+    // 1.0.2 : coffres mis de côté (réinitialisation sans l'ancien mot de passe).
+    let has_archived: bool =
+        conn.query_row("SELECT COUNT(*) FROM pragma_table_info('vaults') WHERE name = 'archived'", [], |r| r.get(0))?;
+    if !has_archived {
+        conn.execute_batch("ALTER TABLE vaults ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")?;
+    }
+    Ok(())
 }
 
 /// Purge des jetons et invitations expirés (tâche périodique).
@@ -107,6 +121,7 @@ pub fn purge_expired(conn: &Connection, now: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM sessions WHERE id NOT IN (SELECT session_id FROM tokens)", [])?;
     conn.execute("DELETE FROM trusted_devices WHERE last_used <= ?1", [now - TRUST_TTL])?;
     conn.execute("DELETE FROM invites WHERE expires_at <= ?1 AND used_by IS NULL", [now])?;
+    conn.execute("DELETE FROM password_resets WHERE expires_at <= ?1", [now])?;
     conn.execute("DELETE FROM audit WHERE ts <= ?1", [now - 365 * 24 * 3600])?;
     Ok(())
 }

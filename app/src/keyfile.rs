@@ -62,6 +62,17 @@ impl App {
             (profile, inner.vault.clone().ok_or(AppError::Locked)?)
         };
         snapshot.set_key_file(password, keyfile.clone())?;
+        if profile.local {
+            let mut inner = self.inner.lock().await;
+            let vault = inner.vault.as_mut().ok_or(AppError::Locked)?;
+            vault.set_key_file(password, keyfile)?;
+            vault.forget_previous_key();
+            if let Some(p) = inner.profile.as_mut() {
+                p.key_file = if remember { key_file.map(Path::to_path_buf) } else { None };
+            }
+            self.persist(&inner)?;
+            return Ok(SyncOutcome { version: 0, pulled: 0, pushed: false });
+        }
         let client = self.connected_client(&profile, snapshot.password()).await?;
         let result = sync(&mut snapshot, profile.last_seen, &self.limits, &client.remote(&profile.vault_id)?).await;
         self.save_tokens(&client)?;

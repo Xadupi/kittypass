@@ -285,6 +285,20 @@ pub(crate) async fn choose(dialog: FileDialogBuilder<tauri::Wry>, save: bool) ->
     rx.await.ok().flatten().and_then(|f| f.into_path().ok())
 }
 
+/// Comme `choose`, avec plusieurs fichiers (une ligne par fichier pour les tests).
+pub(crate) async fn choose_many(dialog: FileDialogBuilder<tauri::Wry>) -> Vec<PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Some(file) = std::env::var_os("KITTYPASS_TEST_DIALOG") {
+        let answer = std::fs::read_to_string(file).unwrap_or_default();
+        return answer.lines().map(str::trim).filter(|l| !l.is_empty()).map(PathBuf::from).collect();
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    dialog.pick_files(move |f| {
+        let _ = tx.send(f);
+    });
+    rx.await.ok().flatten().unwrap_or_default().into_iter().filter_map(|f| f.into_path().ok()).collect()
+}
+
 /// Version de développement seulement (absente des versions distribuées) :
 /// les tests WebDriver ne peuvent pas piloter les boîtes du système. Si
 /// `KITTYPASS_TEST_DIALOG` désigne un fichier, son contenu tient lieu de
@@ -355,6 +369,20 @@ async fn pick_file(handle: AppHandle, purpose: String) -> R<Option<String>> {
     Ok(choose(dialog, false).await.map(|p| p.display().to_string()))
 }
 
+/// Plusieurs fichiers à importer d'un coup (même format).
+#[tauri::command]
+async fn pick_files(handle: AppHandle, purpose: String) -> R<Vec<String>> {
+    let (title, name, ext): (&str, &str, &[&str]) = match purpose.as_str() {
+        "csv" => ("Importer des fichiers CSV", "CSV", &["csv", "txt", "tsv"]),
+        "kdbx" => ("Importer des coffres KeePass", "KeePass", &["kdbx"]),
+        "bitwarden" => ("Importer des exports Bitwarden", "Bitwarden JSON", &["json"]),
+        "1pux" => ("Importer des exports 1Password", "1Password", &["1pux"]),
+        _ => return Err(kittypass_core::Error::InvalidArgument("type de fichier inconnu").into()),
+    };
+    let dialog = handle.dialog().file().set_title(title).add_filter(name, ext);
+    Ok(choose_many(dialog).await.into_iter().map(|p| p.display().to_string()).collect())
+}
+
 /// Crée un nouveau fichier clé à l'endroit choisi ; renvoie son chemin.
 #[tauri::command]
 async fn generate_key_file(handle: AppHandle, app: AppState<'_>) -> R<Option<String>> {
@@ -419,7 +447,11 @@ fn spawn_background(handle: AppHandle, app: Arc<App>) {
                 continue;
             }
             since_sync += tick;
-            if since_sync >= AUTO_SYNC_EVERY && app.status().await.unlocked {
+            if since_sync < AUTO_SYNC_EVERY {
+                continue;
+            }
+            let st = app.status().await;
+            if st.unlocked && !st.local {
                 since_sync = Duration::ZERO;
                 match app.sync().await {
                     Ok(o) => {
@@ -536,7 +568,8 @@ pub fn run() {
             account::revoke_other_sessions, account::change_master_password, account::adopt_master_password,
             account::setup_2fa, account::enable_2fa, account::disable_2fa, account::vault_versions,
             account::restore_version, account::save_version, account::create_invite, account::users,
-            account::set_user_disabled, favicon::favicon, favicon::forget_favicon, favicon::favicons_fetch_all, update::update_check, update::update_install, update::update_open_page, clone_entry, expire_entry, set_entry_tags, open_entry_url,
+            account::set_user_disabled, account::create_reset, account::delete_user, account::delete_account,
+            account::reset_password, pick_files, favicon::favicon, favicon::forget_favicon, favicon::favicons_fetch_all, update::update_check, update::update_install, update::update_open_page, clone_entry, expire_entry, set_entry_tags, open_entry_url,
             biometric::biometric_status, biometric::biometric_enable, biometric::biometric_disable, biometric::biometric_unlock,
             autofill_status, autofill_settings,
             #[cfg(desktop)]

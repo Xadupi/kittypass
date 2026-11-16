@@ -487,3 +487,112 @@ pub async fn change_password(
     audit(&conn, now, Some(&user.user_id), "password_changed", &ip.to_string());
     Ok(StatusCode::NO_CONTENT)
 }
+
+// ---------- Réinitialisation et suppression du compte ----------
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResetPasswordReq {
+    username: String,
+    code: String,
+    kdf: KdfIn,
+    auth_key: String,
+    /// L'ancien mot de passe est perdu : le coffre actuel, illisible avec le
+    /// nouveau, est mis de côté (gardé sur le serveur) et un nouveau pourra
+    /// être créé.
+    #[serde(default)]
+    new_vault: bool,
+}
+
+/// Nouveau mot de passe de connexion avec un code donné par un admin. Les
+/// sessions et appareils de confiance sont fermés ; la 2FA reste active.
+pub async fn reset_password(
+    axum::extract::State(state): State,
+    ClientIp(ip): ClientIp,
+    Json(req): Json<ResetPasswordReq>,
+) -> ApiResult<StatusCode> {
+    too_many(&state, format!("reset:{}", rate_key(ip)), 10, 3600)?;
+    let username = normalize_username(&req.username).map_err(|_| ApiError::Forbidden("invalid_reset_code"))?;
+    let kdf_salt = parse_kdf(&req.kdf)?;
+    let auth_key = unb64(&req.auth_key, 32, 32)?;
+    if req.code.is_empty() || req.code.len() > 128 {
+        return Err(ApiError::Forbidden("invalid_reset_code"));
+    }
+    let now = state.now();
+    let mut conn = state.db();
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let user_id: Option<String> = tx
+        .query_row(
+            "SELECT r.user_id FROM password_resets r JOIN users u ON u.id = r.user_id
+             WHERE u.username = ?1 AND r.code_hash = ?2 AND r.expires_at > ?3",
+            params![username, token_hash(&req.code), now],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let Some(user_id) = user_id else {
+        drop(tx);
+        audit(&conn, now, None, "password_reset_bad_code", &ip.to_string());
+        return Err(ApiError::Forbidden("invalid_reset_code"));
+    };
+    let new_salt = random_bytes::<16>();
+    tx.execute(
+        "UPDATE users SET kdf_salt = ?1, auth_salt = ?2, auth_hash = ?3, failed_logins = 0, locked_until = 0 WHERE id = ?4",
+        params![kdf_salt, new_salt.as_slice(), state.keys.auth_hash(&new_salt, &auth_key).as_slice(), user_id],
+    )?;
+    tx.execute("DELETE FROM password_resets WHERE user_id = ?1", [&user_id])?;
+    tx.execute("DELETE FROM sessions WHERE user_id = ?1", [&user_id])?;
+    tx.execute("DELETE FROM trusted_devices WHERE user_id = ?1", [&user_id])?;
+    if req.new_vault {
+        tx.execute("UPDATE vaults SET archived = 1 WHERE owner_id = ?1", [&user_id])?;
+    }
+    tx.commit()?;
+    audit(&conn, now, Some(&user_id), if req.new_vault { "password_reset_new_vault" } else { "password_reset" }, &ip.to_string());
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteAccountReq {
+    auth_key: String,
+    totp: Option<String>,
+}
+
+/// Supprime son propre compte, ses coffres et ses sessions : mot de passe,
+/// et code 2FA si elle est active. Le dernier admin ne peut pas partir.
+pub async fn delete_account(
+    axum::extract::State(state): State,
+    ClientIp(ip): ClientIp,
+    user: AuthUser,
+    Json(req): Json<DeleteAccountReq>,
+) -> ApiResult<StatusCode> {
+    too_many(&state, format!("delete-account:{}", user.user_id), 5, 300)?;
+    let auth_key = unb64(&req.auth_key, 32, 32)?;
+    let now = state.now();
+    let conn = state.db();
+    let (salt, hash, sealed, last): (Vec<u8>, Vec<u8>, Option<Vec<u8>>, Option<i64>) = conn.query_row(
+        "SELECT auth_salt, auth_hash, totp_secret, totp_last_step FROM users WHERE id = ?1",
+        [&user.user_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?;
+    let pw_ok = ct_eq(&state.keys.auth_hash(&salt, &auth_key), &hash);
+    let code_ok = match &sealed {
+        None => true,
+        Some(sealed) => {
+            let secret = state.keys.open(&user.user_id, sealed).ok_or(ApiError::Internal)?;
+            req.totp.as_deref().is_some_and(|c| totp::verify(&secret, c, now, last).is_some())
+        }
+    };
+    if !(pw_ok && code_ok) {
+        audit(&conn, now, Some(&user.user_id), "delete_account_denied", &ip.to_string());
+        return Err(ApiError::InvalidCredentials);
+    }
+    if user.is_admin {
+        let admins: i64 = conn.query_row("SELECT COUNT(*) FROM users WHERE is_admin = 1 AND disabled = 0", [], |r| r.get(0))?;
+        if admins <= 1 {
+            return Err(ApiError::Conflict("last_admin"));
+        }
+    }
+    conn.execute("DELETE FROM users WHERE id = ?1", [&user.user_id])?;
+    audit(&conn, now, None, "account_deleted", &ip.to_string());
+    Ok(StatusCode::NO_CONTENT)
+}

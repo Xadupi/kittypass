@@ -146,6 +146,9 @@ button:disabled { opacity: .45; cursor: default; }
 .card .segmented label { margin: 0; }
 .card button.primary { width: 100%; justify-content: center; padding: 8px; }
 body.join .only-create { display: none; }
+body:not(.local) .only-local, body:not(.reset) .only-reset, body.reset .no-reset,
+body.local .only-server, body.local-vault .only-remote { display: none !important; }
+.card button.link { display: block; width: 100%; margin-top: 10px; background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: .9em; }
 
 /* ---------- Fenêtre principale ---------- */
 #view-main { display: flex; flex-direction: column; height: 100%; }
@@ -314,6 +317,8 @@ table.help td { padding: 3px 10px 3px 0; vertical-align: top; }
 .settings-dialog .segmented { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0; }
 .card .keyfile-pick label.inline { margin: 4px 0; }
 .card .keyfile-pick label.inline > input { display: inline; width: auto; margin: 0 4px 0 0; }
+.card label.inline.only-reset { display: flex; gap: 6px; align-items: flex-start; }
+.card label.inline.only-reset > input { display: inline; width: auto; margin: 3px 0 0; flex: none; }
 
 /* Choix du thème */
 

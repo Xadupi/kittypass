@@ -279,3 +279,70 @@ async fn admin_invites_and_manages_accounts() {
     root.set_user_disabled("bob", false).await.unwrap();
     bob.sync().await.unwrap();
 }
+
+/// Admin : code de réinitialisation (mot de passe oublié) et suppression de
+/// comptes ; utilisateur : suppression de son propre compte.
+#[tokio::test]
+async fn reset_and_delete_accounts() {
+    let s = server().await;
+    let root = App::open(tmpdir("root"), Arc::new(MemoryStore::default())).unwrap();
+    let mut r = req(&s, SetupMode::Create, Some(new_invite(&s.state.db(), &s.state, true, 1).unwrap()), "Admin");
+    r.username = "root".into();
+    root.setup(r).await.unwrap();
+    let (a, _b, _dir) = devices(&s).await;
+    let id = a.add(None, entry("Gardée")).await.unwrap();
+    a.sync().await.unwrap();
+
+    // Ni l'utilisateur ni l'admin lui-même ne peuvent obtenir de code.
+    assert!(a.create_reset("root").await.is_err());
+    assert!(root.create_reset("root").await.is_err());
+    assert!(root.create_reset("inconnu").await.is_err());
+
+    // 1. Coffre gardé : l'appareil encore ouvert adopte le nouveau mot de passe.
+    let code = root.create_reset("alice").await.unwrap().code;
+    let fresh = App::open(tmpdir("fresh"), Arc::new(MemoryStore::default())).unwrap();
+    assert!(fresh.reset_password(&s.url, "alice", "mauvais-code", NEW_PW, false).await.is_err());
+    assert!(fresh.reset_password(&s.url, "alice", &code, "court", false).await.is_err());
+    fresh.reset_password(&s.url, "alice", &code, NEW_PW, false).await.unwrap();
+    assert!(fresh.reset_password(&s.url, "alice", &code, NEW_PW, false).await.is_err(), "usage unique");
+    assert_eq!(a.sync().await.unwrap_err().code(), "invalid_credentials");
+    a.adopt_master_password(NEW_PW, None).await.unwrap();
+    let mut j = req(&s, SetupMode::Join, None, "Nouveau");
+    j.password = Zeroizing::new(NEW_PW.into());
+    fresh.setup(j).await.unwrap();
+    assert_eq!(fresh.entry(&id).await.unwrap().title, "Gardée");
+
+    // 2. Plus aucun appareil ouvert : nouveau coffre, l'ancien est mis de côté.
+    let code = root.create_reset("alice").await.unwrap().code;
+    let third = App::open(tmpdir("third"), Arc::new(MemoryStore::default())).unwrap();
+    let pw3 = "troisieme-mot-de-passe";
+    third.reset_password(&s.url, "alice", &code, pw3, true).await.unwrap();
+    let mut c = req(&s, SetupMode::Create, None, "Troisième");
+    c.password = Zeroizing::new(pw3.into());
+    third.setup(c).await.unwrap();
+    assert!(third.entry(&id).await.is_err());
+
+    // 3. Suppression de son propre compte : mot de passe exigé, le coffre
+    // reste sur l'appareil, en local.
+    assert!(third.delete_account(PW, None).await.is_err());
+    third.delete_account(pw3, None).await.unwrap();
+    let st = third.status().await;
+    assert!(st.local && st.unlocked && st.username.as_deref() == Some(""));
+    assert!(matches!(third.sync().await, Err(AppError::LocalOnly)));
+    let names: Vec<_> = root.users().await.unwrap().into_iter().map(|u| u.username).collect();
+    assert_eq!(names, ["root"]);
+
+    // 4. Dernier admin : il ne peut pas supprimer son compte.
+    assert!(root.delete_account(PW, None).await.is_err());
+    assert!(root.delete_user("root").await.is_err());
+
+    // 5. Suppression par l'admin.
+    let bob = App::open(tmpdir("bob"), Arc::new(MemoryStore::default())).unwrap();
+    let mut r = req(&s, SetupMode::Create, Some(root.create_invite(false, 1).await.unwrap().code.to_string()), "Bob");
+    r.username = "bob".into();
+    bob.setup(r).await.unwrap();
+    assert!(bob.delete_user("root").await.is_err(), "pas admin");
+    root.delete_user("bob").await.unwrap();
+    assert!(bob.sync().await.is_err());
+    let _ = s.clock;
+}

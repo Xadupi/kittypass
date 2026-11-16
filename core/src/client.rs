@@ -124,6 +124,13 @@ fn error_code(body: &[u8]) -> String {
         .unwrap_or_default()
 }
 
+/// Identifiant tel que le serveur les accepte (il finit dans l'URL).
+fn check_username(username: &str) -> Result<()> {
+    let ok = (3..=32).contains(&username.len())
+        && username.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b));
+    if ok { Ok(()) } else { Err(Error::InvalidArgument("identifiant invalide")) }
+}
+
 fn map_status(status: StatusCode, body: &[u8]) -> Error {
     let detail = serde_json::from_slice::<Value>(body).ok().and_then(|v| v["detail"].as_str().map(str::to_owned));
     if status == StatusCode::BAD_REQUEST && detail.as_deref() == Some("code invalide") {
@@ -140,6 +147,8 @@ fn map_status(status: StatusCode, body: &[u8]) -> Error {
             Error::InvalidArgument("activez d'abord la 2FA sur votre compte")
         }
         (StatusCode::CONFLICT, "username_taken") => Error::UsernameTaken,
+        (StatusCode::FORBIDDEN, "invalid_reset_code") => Error::InvalidArgument("code de réinitialisation invalide ou expiré"),
+        (StatusCode::CONFLICT, "last_admin") => Error::InvalidArgument("dernier administrateur : nommez-en un autre avant"),
         (StatusCode::FORBIDDEN, "2fa_required_by_server") => Error::InvalidArgument("la 2FA est imposée par le serveur"),
         (s, _) => Error::Server(s.as_u16()),
     }
@@ -368,14 +377,56 @@ impl Client {
 
     /// Désactive ou réactive un compte (admins).
     pub async fn set_user_disabled(&self, username: &str, disabled: bool) -> Result<()> {
-        let ok = (3..=32).contains(&username.len())
-            && username.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b));
-        if !ok {
-            return Err(Error::InvalidArgument("identifiant invalide"));
-        }
+        check_username(username)?;
         let url = self.url(&format!("api/v1/admin/users/{username}/disabled"))?;
         let body = json!({"disabled": disabled});
         self.send_authed(|t| Ok(self.http.post(url.clone()).bearer_auth(t).json(&body))).await
+    }
+
+    /// Code de réinitialisation du mot de passe d'un autre compte (admins).
+    pub async fn create_reset(&self, username: &str, hours: i64) -> Result<Invite> {
+        check_username(username)?;
+        let url = self.url(&format!("api/v1/admin/users/{username}/reset"))?;
+        let body = json!({"hours": hours});
+        let (s, _, b) = self.authed(|t| Ok(self.http.post(url.clone()).bearer_auth(t).json(&body))).await?;
+        let b = Zeroizing::new(b);
+        if !s.is_success() {
+            return Err(map_status(s, &b));
+        }
+        serde_json::from_slice(&b).map_err(|_| Error::Server(s.as_u16()))
+    }
+
+    /// Supprime un autre compte et ses coffres (admins).
+    pub async fn delete_user(&self, username: &str) -> Result<()> {
+        check_username(username)?;
+        let url = self.url(&format!("api/v1/admin/users/{username}"))?;
+        self.send_authed(|t| Ok(self.http.delete(url.clone()).bearer_auth(t))).await
+    }
+
+    /// Supprime son propre compte : mot de passe et code 2FA éventuel.
+    pub async fn delete_account(&self, username: &str, password: &str, totp: Option<&str>) -> Result<()> {
+        let (salt, params) = self.prelogin(username).await?;
+        let key = derive_auth_key(password, &salt, &params)?;
+        let body = json!({"auth_key": STANDARD.encode(key.as_bytes()), "totp": totp.map(str::trim)});
+        let url = self.url("api/v1/account")?;
+        self.send_authed(|t| Ok(self.http.delete(url.clone()).bearer_auth(t).json(&body))).await
+    }
+
+    /// Nouveau mot de passe avec un code de réinitialisation (sans session).
+    /// `new_vault` : l'ancien coffre, illisible, est mis de côté sur le serveur.
+    pub async fn reset_password(&self, username: &str, code: &str, password: &str, new_vault: bool) -> Result<()> {
+        let salt = new_account_salt()?;
+        let d = KdfParams::DEFAULT;
+        let key = derive_auth_key(password, &salt, &d)?;
+        let body = json!({
+            "username": username,
+            "code": code.trim(),
+            "kdf": {"salt": STANDARD.encode(salt), "memory_kib": d.memory_kib, "iterations": d.iterations, "parallelism": d.parallelism},
+            "auth_key": STANDARD.encode(key.as_bytes()),
+            "new_vault": new_vault,
+        });
+        let (s, b) = self.post_json("api/v1/account/reset", &body, false).await?;
+        if s.is_success() { Ok(()) } else { Err(map_status(s, &b)) }
     }
 
     /// Révoque une session (un autre appareil) : ses jetons ne valent plus rien.

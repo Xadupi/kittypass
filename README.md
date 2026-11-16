@@ -30,6 +30,9 @@ macOS : l'application n'a pas de signature Apple. Si macOS dit qu'elle est
 
 - Coffres KDBX 4 lisibles par KeePass/KeePassXC, fichiers clés, groupes, corbeille
 - Synchronisation chiffrée avec fusion des modifications
+- Mode « sans serveur » : coffre local seul, comme KeePassXC
+- Comptes : réinitialisation du mot de passe par un admin (code à usage unique,
+  le coffre reste chiffré), suppression de compte par l'admin ou soi-même
 - 2FA (TOTP), demandée seulement à la première connexion d'un appareil
 - Intégration navigateur via l'extension KeePassXC-Browser
 - Saisie automatique (raccourci global), agent SSH
@@ -39,7 +42,7 @@ macOS : l'application n'a pas de signature Apple. Si macOS dit qu'elle est
   dans la page d'accueil et le domaine parent
 - Android : remplissage automatique, déverrouillage biométrique
 - Import KDBX (groupes vides compris), KeePassXC (CSV), Bitwarden,
-  1Password ; export CSV/HTML/XML
+  1Password, plusieurs fichiers d'un coup ; export CSV/HTML/XML
 - Thèmes clair, pastel, sombre ; style « Liquid Glass » sur macOS et iOS
 - Dossier de démarrage au choix
 
