@@ -97,6 +97,9 @@ pub struct Client {
     /// Jeton « appareil de confiance » : remplace le code 2FA aux connexions
     /// suivantes sur cet appareil (renouvelé à chaque connexion).
     device_token: Mutex<Option<String>>,
+    /// Un seul renouvellement à la fois : le serveur considère un jeton de
+    /// rafraîchissement présenté deux fois comme volé et ferme la session.
+    refreshing: tokio::sync::Mutex<()>,
 }
 
 /// N'accepte que HTTPS, sauf vers la machine locale (développement) : en HTTP
@@ -176,7 +179,7 @@ impl Client {
         let http = android_roots(http)
             .build()
             .map_err(|_| Error::Network)?;
-        Ok(Self { base, http, tokens: Mutex::new(None), device_token: Mutex::new(None) })
+        Ok(Self { base, http, tokens: Mutex::new(None), device_token: Mutex::new(None), refreshing: tokio::sync::Mutex::new(()) })
     }
 
     pub fn set_tokens(&self, tokens: Option<Tokens>) {
@@ -265,7 +268,22 @@ impl Client {
         Ok(v["must_setup_2fa"].as_bool().unwrap_or(false))
     }
 
+    /// Renouvelle les jetons, sauf si une autre requête l'a déjà fait depuis
+    /// que `used` (jeton d'accès refusé) a été lu.
+    async fn refresh_after(&self, used: &str) -> Result<()> {
+        let _guard = self.refreshing.lock().await;
+        match self.tokens() {
+            Some(t) if t.access_token != used => Ok(()),
+            _ => self.refresh_locked().await,
+        }
+    }
+
     pub async fn refresh(&self) -> Result<()> {
+        let _guard = self.refreshing.lock().await;
+        self.refresh_locked().await
+    }
+
+    async fn refresh_locked(&self) -> Result<()> {
         let t = self.tokens().ok_or(Error::SessionExpired)?;
         let (s, b) = self.post_json("api/v1/token/refresh", &json!({"refresh_token": t.refresh_token}), false).await?;
         if !s.is_success() {
@@ -294,7 +312,7 @@ impl Client {
             let res = build(&token)?.send().await.map_err(|_| Error::Network)?;
             let status = res.status();
             if status == StatusCode::UNAUTHORIZED && attempt == 0 {
-                self.refresh().await?;
+                self.refresh_after(&token).await?;
                 continue;
             }
             let headers = res.headers().clone();

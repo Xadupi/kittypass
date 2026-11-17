@@ -215,6 +215,55 @@ async fn totp_required_on_relogin_then_relogin_with_code() {
     app.sync().await.unwrap();
 }
 
+/// Deux fenêtres qui synchronisent en même temps (fenêtre de saisie
+/// automatique + fenêtre principale) : le jeton de rafraîchissement ne doit
+/// servir qu'une fois, sinon le serveur ferme la session et la 2FA revient.
+#[tokio::test(flavor = "multi_thread")]
+async fn concurrent_syncs_do_not_ask_for_2fa_again() {
+    let s = server().await;
+    let (app, store, dir) = first_device(&s).await;
+    let c = kittypass_core::client::Client::new(&s.url).unwrap();
+    c.login("alice", PW, None, "setup").await.unwrap();
+    let secret = base32(&c.setup_2fa().await.unwrap().secret);
+    let now = || kittypass_server::clock::Clock::now(&*s.clock) / totp::STEP;
+    c.enable_2fa(&format!("{:06}", totp::code_at(&secret, now())))
+        .await
+        .unwrap();
+    s.clock.advance(30);
+    drop(app);
+    let app = Arc::new(App::open(dir.clone(), store.clone()).unwrap());
+    app.unlock(PW).await.unwrap();
+    assert_eq!(app.sync().await.unwrap_err().code(), "totp_required");
+    app.relogin(&format!("{:06}", totp::code_at(&secret, now())))
+        .await
+        .unwrap();
+    app.sync().await.unwrap();
+
+    for round in 0..3 {
+        // Jeton d'accès expiré (même session), puis appli relancée (jeton de
+        // rafraîchissement du trousseau, puis appareil de confiance).
+        s.clock
+            .advance(if round == 2 { 40 * 24 * 3600 } else { 20 * 60 });
+        let app = if round == 0 {
+            app.clone()
+        } else {
+            let a = Arc::new(App::open(dir.clone(), store.clone()).unwrap());
+            a.unlock(PW).await.unwrap();
+            a
+        };
+        let tasks: Vec<_> = (0..6)
+            .map(|_| {
+                let a = app.clone();
+                tokio::spawn(async move { a.sync().await })
+            })
+            .collect();
+        for t in tasks {
+            let r = t.await.unwrap();
+            assert!(r.is_ok(), "tour {round} : {:?}", r.err().map(|e| e.code()));
+        }
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn auto_lock_after_inactivity() {
     let s = server().await;

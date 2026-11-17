@@ -153,6 +153,9 @@ pub struct App {
     browser_prompt: tokio::sync::Mutex<()>,
     /// Clés ajoutées à l'agent SSH pendant cette session.
     ssh: tokio::sync::Mutex<ssh::SshState>,
+    /// Une seule connexion au serveur à la fois (deux fenêtres qui
+    /// synchronisent ensemble useraient deux fois le même jeton).
+    connecting: tokio::sync::Mutex<()>,
 }
 
 impl App {
@@ -174,6 +177,7 @@ impl App {
             limits: OpenLimits::default(),
             browser_prompt: tokio::sync::Mutex::new(()),
             ssh: Default::default(),
+            connecting: tokio::sync::Mutex::new(()),
         })
     }
 
@@ -371,6 +375,7 @@ impl App {
         if profile.local {
             return Err(AppError::LocalOnly);
         }
+        let _connecting = self.connecting.lock().await;
         {
             let inner = self.inner.lock().await;
             if let Some(c) = &inner.client

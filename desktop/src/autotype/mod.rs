@@ -165,9 +165,10 @@ pub fn apply_global(handle: &AppHandle, cfg: &AutoTypeConfig) {
         #[cfg(target_os = "linux")]
         Some(Effective::Portal) => {
             let h = handle.clone();
+            let dir = state.dir.clone();
             let task = tauri::async_runtime::spawn(async move {
                 let h2 = h.clone();
-                if let Err(e) = portal::global_shortcut(shortcut, move || on_global(&h2, None)).await {
+                if let Err(e) = portal::global_shortcut(dir, shortcut, move || on_global(&h2, None)).await {
                     report(&h, e);
                 }
             });

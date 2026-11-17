@@ -1,6 +1,6 @@
 [package]
 name = "kittypass-core"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 license = "GPL-3.0-or-later"
 publish = false
@@ -39,6 +39,8 @@ ssh-key = { version = "0.6.7", default-features = false, features = ["std", "ecd
 ssh-encoding = { version = "0.2", features = ["std"] }
 quick-xml = "0.42"
 
+tokio = { version = "1.54.1", features = ["sync"], optional = true }
+
 [dev-dependencies]
 hmac = "0.13.0"
 proptest = "1.12.0"
@@ -46,7 +48,7 @@ tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros"] }
 zeroize = "1.9.1"
 
 [features]
-client = ["dep:reqwest", "dep:webpki-root-certs"]
+client = ["dep:reqwest", "dep:webpki-root-certs", "dep:tokio"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 webpki-root-certs = { version = "1", optional = true }

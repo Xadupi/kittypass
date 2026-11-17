@@ -5,7 +5,10 @@
 //! le jeton rendu (gardé en 0600) évite de la reposer ensuite, jusqu'à ce
 //! que l'utilisateur la révoque dans les réglages du système.
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use ashpd::desktop::{
     PersistMode,
@@ -18,6 +21,8 @@ use kittypass_app::{AutoTypeStep as Step, Typed};
 use super::{TypeError, keymap, keysym};
 
 const TOKEN_FILE: &str = "autotype-portal.token";
+/// Dernier raccourci envoyé au portail des raccourcis globaux.
+const BOUND_FILE: &str = "autotype-portal.shortcut";
 
 fn err(e: ashpd::Error) -> TypeError {
     match e {
@@ -161,18 +166,22 @@ fn portal_trigger(shortcut: &str) -> String {
 
 /// Enregistre le raccourci global et appelle `on_press` à chaque appui,
 /// jusqu'à l'abandon de la tâche.
-pub async fn global_shortcut(shortcut: String, on_press: impl Fn() + Send + 'static) -> Result<(), TypeError> {
+pub async fn global_shortcut(dir: PathBuf, shortcut: String, on_press: impl Fn() + Send + 'static) -> Result<(), TypeError> {
     let proxy = GlobalShortcuts::new().await.map_err(err)?;
     let session = proxy.create_session(Default::default()).await.map_err(err)?;
-    let wanted = [NewShortcut::new("autotype", "Saisie automatique KittyPass").preferred_trigger(portal_trigger(&shortcut).as_str())];
-    // Déjà enregistré lors d'un lancement précédent : ne pas redemander, car
-    // KDE ouvre sa fenêtre de réglage des raccourcis à chaque enregistrement.
+    let trigger = portal_trigger(&shortcut);
+    let wanted = [NewShortcut::new("autotype", "Saisie automatique KittyPass").preferred_trigger(trigger.as_str())];
+    // Déjà enregistré avec ce même raccourci : ne pas redemander, car KDE
+    // ouvre sa fenêtre de réglage à chaque enregistrement. Si le raccourci a
+    // changé dans KittyPass, il faut le renvoyer, sinon KDE garde l'ancien.
     let known = match proxy.list_shortcuts(&session, Default::default()).await {
         Ok(r) => r.response().map(|l| l.shortcuts().iter().any(|s| s.id() == "autotype")).unwrap_or(false),
         Err(_) => false,
     };
-    if !known {
+    let bound = std::fs::read_to_string(dir.join(BOUND_FILE)).ok();
+    if !known || bound.as_deref().map(str::trim) != Some(trigger.as_str()) {
         proxy.bind_shortcuts(&session, &wanted, None, Default::default()).await.map_err(err)?.response().map_err(err)?;
+        let _ = std::fs::write(dir.join(BOUND_FILE), &trigger);
     }
     let mut activated = proxy.receive_activated().await.map_err(err)?;
     // Une seule session par processus : l'identifiant suffit.
