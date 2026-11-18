@@ -16,6 +16,10 @@ ignore = [
     { id = "RUSTSEC-2026-0370", reason = "zvariant via keyring/zbus 5, pas de remplacement" },
     { id = "RUSTSEC-2026-0371", reason = "zbus_names via keyring/zbus 5, pas de remplacement" },
     { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via keyring/zbus 5, pas de remplacement" },
+    # 2026-11-18 : chrono déclaré non maintenu, sans faille connue. Tiré par
+    # keepass (vendor/) pour les dates KDBX ; le remplacer par jiff demande de
+    # modifier la crate copiée.
+    { id = "RUSTSEC-2026-0543", reason = "chrono via keepass (vendor), dates KDBX, pas de faille connue" },
 ]
 
 [licenses]
