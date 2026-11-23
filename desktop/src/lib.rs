@@ -14,6 +14,8 @@ mod favicon;
 mod update;
 #[cfg(desktop)]
 mod quick;
+#[cfg(desktop)]
+mod tray;
 mod secrets;
 mod ssh;
 
@@ -517,6 +519,10 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
+    // Un second lancement (menu, raccourci) montre la fenêtre déjà ouverte
+    // au lieu de démarrer une autre instance.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|h, _args, _cwd| tray::show_main(h)));
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(windows)]
@@ -540,6 +546,14 @@ pub fn run() {
             autotype::restore(tauri_app.handle());
             #[cfg(desktop)]
             quick::create(tauri_app.handle());
+            #[cfg(desktop)]
+            {
+                let has_tray = tray::create(tauri_app.handle());
+                tauri_app.manage(quick::Background(has_tray));
+                if !(has_tray && tray::start_hidden()) {
+                    tray::show_main(tauri_app.handle());
+                }
+            }
             #[cfg(target_os = "android")]
             {
                 let h = tauri_app.handle().clone();

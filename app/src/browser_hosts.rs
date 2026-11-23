@@ -32,8 +32,11 @@ enum Family {
 /// Navigateurs pris en charge : (nom, dossier de configuration relatif au
 /// dossier personnel, dossier des manifestes dedans).
 #[cfg(not(windows))]
-const BROWSERS: [(&str, Family, &str, &str); 7] = [
+const BROWSERS: [(&str, Family, &str, &str); 8] = [
     ("Firefox", Family::Firefox, ".mozilla", "native-messaging-hosts"),
+    // Firefox 147 et plus : profil dans ~/.config/mozilla (XDG) quand
+    // ~/.mozilla n'existait pas encore.
+    ("Firefox", Family::Firefox, ".config/mozilla", "native-messaging-hosts"),
     ("Chromium", Family::Chromium, ".config/chromium", "NativeMessagingHosts"),
     ("Google Chrome", Family::Chromium, ".config/google-chrome", "NativeMessagingHosts"),
     ("Brave", Family::Chromium, ".config/BraveSoftware/Brave-Browser", "NativeMessagingHosts"),
@@ -384,7 +387,7 @@ fn install_proxy_copy(from: &Path, to: &Path) -> AppResult<()> {
 mod tests {
     use super::*;
 
-    fn home(name: &str) -> Hosts {
+    pub(super) fn home(name: &str) -> Hosts {
         let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
         let h = std::env::temp_dir().join(format!("kp-hosts-{}-{name}-{t}", std::process::id()));
         std::fs::create_dir_all(&h).unwrap();
@@ -502,5 +505,21 @@ mod proxy_copy_tests {
         assert!(install_proxy_copy(&d.join("absent"), &to).is_err());
         assert_eq!(std::fs::read(&to).unwrap(), b"v2", "copie intacte si la source manque");
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// Firefox récent sans ~/.mozilla : profil dans ~/.config/mozilla.
+    #[test]
+    fn firefox_xdg_profile_gets_manifest() {
+        let h = super::tests::home("xdg");
+        std::fs::create_dir_all(h.home.join(".config/mozilla/firefox")).unwrap();
+        let st = h.use_kittypass().unwrap();
+        assert_eq!(st.browsers.len(), 1);
+        assert_eq!(st.browsers[0].owner, Owner::KittyPass);
+        let file = h.home.join(".config/mozilla/native-messaging-hosts").join(MANIFEST);
+        let m: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(m["path"], h.proxy.to_string_lossy().as_ref());
+        assert!(m["allowed_extensions"].is_array());
+        assert!(!h.home.join(".mozilla").exists(), "pas de ~/.mozilla créé pour rien");
+        let _ = std::fs::remove_dir_all(&h.home);
     }
 }

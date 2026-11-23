@@ -133,6 +133,25 @@ jobs:
           name: kittypass-fedora
           path: target/release/bundle/rpm/*.rpm
 
+  arch:
+    needs: tests
+    runs-on: ubuntu-latest
+    # Paquet Arch (.pkg.tar.zst) construit dans un vrai Arch Linux, avec
+    # deploy/arch/PKGBUILD sur le code du tag. makepkg refuse root : utilisateur dédié.
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          pacman -Syu --noconfirm --needed base-devel git rust cargo-tauri clang pkgconf \
+            webkit2gtk-4.1 gtk3 libayatana-appindicator openssl xdg-desktop-portal
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE"
+      - run: su builder -c 'cd deploy/arch && KP_LOCAL=1 makepkg -f --noconfirm'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kittypass-arch
+          path: deploy/arch/*.pkg.tar.zst
+
   # iOS (expérimental) : .ipa NON signé, à installer avec Sideloadly ou
   # AltStore et un identifiant Apple (à réinstaller tous les 7 jours).
   ios:
@@ -348,7 +367,7 @@ jobs:
   # SHA256SUMS.txt et latest.json (mise à jour intégrée de l'appli).
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [desktop, debian, fedora, ios, android, docker, server-linux, server-windows]
+    needs: [desktop, debian, fedora, arch, ios, android, docker, server-linux, server-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -363,7 +382,7 @@ jobs:
           v=${GITHUB_REF_NAME#v}
           mkdir out
           find art -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.AppImage' -o -name '*.dmg' \
-            -o -name '*.deb' -o -name '*.rpm' -o -name '*.ipa' -o -name '*.apk' -o -name '*.sh' -o -name '*.zip' \
+            -o -name '*.deb' -o -name '*.rpm' -o -name '*.pkg.tar.zst' -o -name '*.ipa' -o -name '*.apk' -o -name '*.sh' -o -name '*.zip' \
             -o -name '*.sig' -o -name '*.app.tar.gz' \) -exec cp -- {} out/ \;
           # Archive de mise à jour macOS : nom versionné.
           if [ -f out/KittyPass.app.tar.gz ]; then

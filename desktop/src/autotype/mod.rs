@@ -14,6 +14,8 @@ mod keymap;
 #[cfg(target_os = "linux")]
 mod portal;
 #[cfg(target_os = "linux")]
+mod kde;
+#[cfg(target_os = "linux")]
 mod x11;
 #[cfg(windows)]
 mod windows;
@@ -168,7 +170,14 @@ pub fn apply_global(handle: &AppHandle, cfg: &AutoTypeConfig) {
             let dir = state.dir.clone();
             let task = tauri::async_runtime::spawn(async move {
                 let h2 = h.clone();
-                if let Err(e) = portal::global_shortcut(dir, shortcut, move || on_global(&h2, None)).await {
+                // Sous KDE, kglobalaccel directement : le portail y perd
+                // l'enregistrement des applis hors Flatpak.
+                let r = if kde::is_kde() {
+                    kde::global_shortcut(&shortcut, move || on_global(&h2, None)).await
+                } else {
+                    portal::global_shortcut(dir, shortcut, move || on_global(&h2, None)).await
+                };
+                if let Err(e) = r {
                     report(&h, e);
                 }
             });

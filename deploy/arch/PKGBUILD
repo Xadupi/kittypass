@@ -1,0 +1,69 @@
+# Paquet Arch Linux de l'application KittyPass (et dérivées : Manjaro,
+# EndeavourOS, XadupiOS…).
+#
+#   cd deploy/arch && makepkg -si            # version publiée (tag v$pkgver)
+#   KP_LOCAL=1 makepkg -si                   # depuis ce dépôt, tel quel
+#
+# Utilise le WebKitGTK du système (plus récent que celui de l'AppImage).
+pkgname=kittypass
+pkgver=1.0.4
+pkgrel=1
+pkgdesc="Gestionnaire de mots de passe compatible KeePass, synchronisé par un serveur auto-hébergé"
+arch=('x86_64' 'aarch64')
+url="https://github.com/Xadupi/kittypass"
+license=('GPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'openssl' 'xdg-desktop-portal')
+makedepends=('rust' 'cargo-tauri' 'git' 'clang' 'pkgconf')
+optdepends=('xdg-desktop-portal-kde: saisie automatique et raccourci global sous Plasma (Wayland)'
+            'xdg-desktop-portal-gnome: saisie automatique sous GNOME (Wayland)')
+# Même manifeste navigateur que KeePassXC (l'extension KeePassXC-Browser).
+conflicts=('keepassxc')
+options=('!lto' '!debug')
+
+if [ -n "${KP_LOCAL:-}" ]; then
+  source=()
+  sha256sums=()
+else
+  source=("git+$url.git#tag=v$pkgver")
+  sha256sums=('SKIP')
+fi
+
+_src() {
+  if [ -n "${KP_LOCAL:-}" ]; then
+    realpath "$startdir/../.."
+  else
+    echo "$srcdir/kittypass"
+  fi
+}
+
+build() {
+  cd "$(_src)/desktop"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cargo build --release --locked -p kittypass-proxy
+  cargo tauri build --no-bundle -- --locked
+}
+
+check() {
+  cd "$(_src)"
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p kittypass-app
+}
+
+package() {
+  local src t="$srcdir/target/release"
+  src="$(_src)"
+  install -Dm755 "$t/kittypass-desktop" "$pkgdir/usr/bin/kittypass-desktop"
+  # Le relais navigateur est cherché à côté de l'exécutable.
+  install -Dm755 "$t/kittypass-proxy" "$pkgdir/usr/bin/kittypass-proxy"
+  install -Dm644 "$src/deploy/arch/org.kittypass.desktop.desktop" \
+    "$pkgdir/usr/share/applications/org.kittypass.desktop.desktop"
+  install -Dm644 "$src/desktop/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/kittypass.png"
+  install -Dm644 "$src/desktop/icons/64x64.png" "$pkgdir/usr/share/icons/hicolor/64x64/apps/kittypass.png"
+  install -Dm644 "$src/desktop/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/kittypass.png"
+  install -Dm644 "$src/desktop/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/kittypass.png"
+  install -Dm644 "$src/desktop/icons/icon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/kittypass.svg"
+  # Manifeste système de l'extension pour Firefox : lu quel que soit
+  # l'emplacement du profil (~/.mozilla ou ~/.config/mozilla).
+  install -Dm644 "$src/deploy/arch/firefox-host.json" \
+    "$pkgdir/usr/lib/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
+  install -Dm644 "$src/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -70,14 +70,25 @@ pub fn quick_hide(handle: AppHandle) {
     hide(&handle);
 }
 
-/// Fermer la fenêtre rapide la cache seulement (ses demandes sont refusées) ;
-/// fermer la fenêtre principale quitte l'application.
+/// L'icône de notification existe : fermer la fenêtre principale la cache.
+pub struct Background(pub bool);
+
+/// Fermer la fenêtre rapide la cache seulement (ses demandes sont refusées).
+/// Fermer la fenêtre principale la cache aussi quand l'icône de notification
+/// existe (KittyPass reste à l'écoute du navigateur et du raccourci) ; sinon
+/// elle quitte l'application.
 pub fn on_window_event(w: &Window, ev: &WindowEvent) {
     match (w.label(), ev) {
         (LABEL, WindowEvent::CloseRequested { api, .. }) => {
             api.prevent_close();
             let _ = w.hide();
             let _ = w.emit_to(LABEL, "quick_closed", ());
+        }
+        ("main", WindowEvent::CloseRequested { api, .. })
+            if w.app_handle().try_state::<Background>().is_some_and(|b| b.0) =>
+        {
+            api.prevent_close();
+            let _ = w.hide();
         }
         ("main", WindowEvent::Destroyed) => w.app_handle().exit(0),
         _ => {}

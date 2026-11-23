@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=KittyPass
+GenericName=Gestionnaire de mots de passe
+Comment=Gestionnaire de mots de passe synchronisé
+Exec=kittypass-desktop %U
+Icon=kittypass
+Terminal=false
+Categories=Utility;Security;
+Keywords=password;keepass;mot de passe;
+StartupWMClass=kittypass-desktop

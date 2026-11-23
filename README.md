@@ -11,6 +11,7 @@ contenu des coffres (zero-knowledge).
 | Windows 10/11 | `KittyPass_<version>_x64-setup.exe` (WebView2 inclus) |
 | Debian / Ubuntu | `KittyPass_<version>_amd64.deb` |
 | Fedora / RHEL | `KittyPass-<version>-1.x86_64.rpm` |
+| Arch Linux | `kittypass-<version>-<rel>-x86_64.pkg.tar.zst` (`sudo pacman -U …`) |
 | Autres Linux | `KittyPass_<version>_amd64.AppImage` |
 | macOS 11+ (Apple Silicon) | `KittyPass_<version>_aarch64.dmg` (non signé) |
 | Android 8+ | `KittyPass-<version>.apk` |
@@ -43,6 +44,8 @@ macOS : l'application n'a pas de signature Apple. Si macOS dit qu'elle est
 - Android : remplissage automatique, déverrouillage biométrique
 - Import KDBX (groupes vides compris), KeePassXC (CSV), Bitwarden,
   1Password, plusieurs fichiers d'un coup ; export CSV/HTML/XML
+- Icône dans la zone de notification : fermer la fenêtre garde KittyPass à
+  l'écoute du navigateur et du raccourci ; `--hidden` démarre sans fenêtre
 - Thèmes clair, pastel, sombre ; style « Liquid Glass » sur macOS et iOS
 - Dossier de démarrage au choix
 
@@ -141,6 +144,9 @@ docs/     architecture, déploiement, reste à faire
 cargo test --workspace
 cd desktop && cargo tauri build --bundles deb,appimage --config tauri.linux.json
 ```
+
+Arch Linux : `cd deploy/arch && makepkg -si` (version publiée) ou
+`KP_LOCAL=1 makepkg -si` (ce dépôt tel quel).
 
 Serveur seul : `cargo build --release -p kittypass-server`.
 Installateurs serveur : `deploy/proxmox/make-installer.sh`,

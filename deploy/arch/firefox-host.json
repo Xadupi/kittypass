@@ -1,0 +1,9 @@
+{
+  "allowed_extensions": [
+    "keepassxc-browser@keepassxc.org"
+  ],
+  "description": "KittyPass (compatible KeePassXC-Browser)",
+  "name": "org.keepassxc.keepassxc_browser",
+  "path": "/usr/bin/kittypass-proxy",
+  "type": "stdio"
+}
